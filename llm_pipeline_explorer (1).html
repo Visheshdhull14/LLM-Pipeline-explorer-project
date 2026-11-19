@@ -1,0 +1,1928 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM Pipeline Explorer — Tokenizer & 3D Embedding Studio</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js (r128) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Google Fonts: Inter, Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            carbon: '#0B0D10',
+            studioPanel: '#12151B',
+            studioElevated: '#181C24',
+            hairline: '#262C38',
+            steelBlue: '#3B82F6',
+            steelBlueLight: '#60A5FA',
+            sageEmerald: '#10B981',
+            warmAmber: '#F59E0B',
+            mutedCoral: '#EF4444',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root {
+      --bg-carbon: #0B0D10;
+      --surface-panel: #12151B;
+      --surface-elevated: #181C24;
+      --border-hairline: #262C38;
+      --accent-blue: #3B82F6;
+      --accent-emerald: #10B981;
+      --accent-amber: #F59E0B;
+      --accent-coral: #EF4444;
+    }
+
+    body {
+      background-color: #0B0D10;
+      background-image:
+        radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.05) 0%, transparent 55%),
+        radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.03) 0%, transparent 45%);
+      color: #F3F4F6;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Realistic Matte Studio Panel with Hairline Border & Soft Elevation */
+    .glass-panel {
+      position: relative;
+      background: rgba(18, 21, 27, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid #262C38;
+      box-shadow:
+        0 4px 24px -2px rgba(0, 0, 0, 0.45),
+        0 1px 0 0 rgba(255, 255, 255, 0.03) inset;
+    }
+
+    .glow-cyan {
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+    }
+
+    .glow-violet {
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+    }
+
+    /* Smooth Studio Button Interaction */
+    .cyber-btn {
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Refined Training Progress Bar */
+    .laser-progress {
+      background: linear-gradient(90deg, #2563EB, #3B82F6, #10B981);
+    }
+
+    /* Pipeline Connector Animation */
+    @keyframes flowDash {
+      to {
+        stroke-dashoffset: -20;
+      }
+    }
+    .pipeline-flow-line {
+      stroke-dasharray: 5 5;
+      animation: flowDash 1.2s linear infinite;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0B0D10;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2A313D;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3B4454;
+    }
+
+    /* 3D Canvas Container */
+    #three-container {
+      position: relative;
+      width: 100%;
+      height: 550px;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 45%, #151922 0%, #0B0D10 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      cursor: grab;
+    }
+    #three-container:active {
+      cursor: grabbing;
+    }
+    #three-container canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Dual View Canvas Containers */
+    .dual-canvas-box {
+      position: relative;
+      width: 100%;
+      height: 460px;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 45%, #151922 0%, #0B0D10 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      cursor: grab;
+    }
+    .dual-canvas-box:active {
+      cursor: grabbing;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-blue-500/30 selection:text-blue-100">
+
+  <!-- TOP NAVIGATION STUDIO HEADER -->
+  <header class="sticky top-0 z-40 glass-panel border-b border-[#262C38] px-4 sm:px-6 py-3.5">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <!-- Brand Title -->
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 rounded-xl bg-[#181C24] border border-[#2E3545] flex items-center justify-center shadow-sm">
+          <svg class="w-5 h-5 text-[#60A5FA]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2.5">
+            <h1 class="font-display text-base sm:text-lg font-bold tracking-tight text-[#F3F4F6]">
+              LLM Pipeline Explorer
+            </h1>
+            <span class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#181C24] text-[#9CA3AF] border border-[#262C38]">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+              Research Studio v2.4
+            </span>
+          </div>
+          <p class="text-xs text-[#9CA3AF]">Interactive Subword Tokenizer & 3D Vector Embedding Projector</p>
+        </div>
+      </div>
+
+      <!-- Step Progress Pills & Reset Button -->
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div class="hidden md:flex items-center gap-1 bg-[#0B0D10] p-1 rounded-xl border border-[#262C38] text-xs font-medium">
+          <a href="#stage-1" id="pill-stage-1" class="px-3 py-1.5 rounded-lg bg-[#181C24] text-[#F3F4F6] border border-[#2E3545] shadow-sm transition">
+            1. Vocabulary
+          </a>
+          <span class="text-[#4B5563] px-0.5">→</span>
+          <a href="#stage-2" id="pill-stage-2" class="px-3 py-1.5 rounded-lg text-[#9CA3AF] hover:text-[#F3F4F6] transition">
+            2. Tokenization
+          </a>
+          <span class="text-[#4B5563] px-0.5">→</span>
+          <a href="#stage-3" id="pill-stage-3" class="px-3 py-1.5 rounded-lg text-[#9CA3AF] hover:text-[#F3F4F6] transition">
+            3. 3D Embedding Space
+          </a>
+        </div>
+
+        <button id="btn-reset-corpus" class="cyber-btn px-3.5 py-2 rounded-xl text-xs font-medium bg-[#181C24] hover:bg-[#1F242F] text-[#F3F4F6] border border-[#262C38] hover:border-[#374151] shadow-sm transition flex items-center gap-1.5 active:scale-[0.98]">
+          <svg class="w-3.5 h-3.5 text-[#9CA3AF]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Reset Corpus
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-8 relative z-10">
+
+    <!-- VISUAL PIPELINE ARCHITECTURE BAR -->
+    <section class="glass-panel rounded-2xl p-4 sm:p-5">
+      <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
+        <!-- Node 1 -->
+        <div id="flow-node-1" class="w-full lg:w-1/3 flex items-center gap-3.5 p-3.5 rounded-xl bg-[#181C24] border border-[#262C38] glow-cyan transition-all">
+          <div class="w-9 h-9 rounded-lg bg-[#1E2532] border border-[#2F394B] flex items-center justify-center font-mono text-xs font-semibold text-[#60A5FA] shrink-0">
+            01
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-medium text-[#9CA3AF]">Stage 1 · Training Corpus</span>
+              <span id="status-node-1" class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-[#10B981] border border-emerald-500/25">Ready</span>
+            </div>
+            <h2 class="text-sm font-semibold text-[#F3F4F6] truncate mt-0.5">Vocabulary & BPE Training</h2>
+            <p class="text-xs text-[#9CA3AF] truncate">Subword merges + co-occurrence matrix</p>
+          </div>
+        </div>
+
+        <!-- Animated Connector 1 -> 2 -->
+        <div class="hidden lg:flex items-center justify-center w-10 shrink-0">
+          <svg class="w-10 h-6 text-[#4B5563]" viewBox="0 0 40 24">
+            <line x1="0" y1="12" x2="32" y2="12" stroke="#4B5563" stroke-width="1.5" class="pipeline-flow-line" />
+            <polygon points="32,8 39,12 32,16" fill="#6B7280" />
+          </svg>
+        </div>
+
+        <!-- Node 2 -->
+        <div id="flow-node-2" class="w-full lg:w-1/3 flex items-center gap-3.5 p-3.5 rounded-xl bg-[#181C24] border border-[#262C38] transition-all">
+          <div class="w-9 h-9 rounded-lg bg-[#1A2825] border border-[#273E39] flex items-center justify-center font-mono text-xs font-semibold text-[#10B981] shrink-0">
+            02
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-medium text-[#9CA3AF]">Stage 2 · Inference</span>
+              <span id="status-node-2" class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-[#10B981] border border-emerald-500/25">Active</span>
+            </div>
+            <h2 class="text-sm font-semibold text-[#F3F4F6] truncate mt-0.5">Subword BPE Tokenization</h2>
+            <p class="text-xs text-[#9CA3AF] truncate">OOV &lt;UNK&gt; vs. subword decomposition</p>
+          </div>
+        </div>
+
+        <!-- Animated Connector 2 -> 3 -->
+        <div class="hidden lg:flex items-center justify-center w-10 shrink-0">
+          <svg class="w-10 h-6 text-[#4B5563]" viewBox="0 0 40 24">
+            <line x1="0" y1="12" x2="32" y2="12" stroke="#4B5563" stroke-width="1.5" class="pipeline-flow-line" />
+            <polygon points="32,8 39,12 32,16" fill="#6B7280" />
+          </svg>
+        </div>
+
+        <!-- Node 3 -->
+        <div id="flow-node-3" class="w-full lg:w-1/3 flex items-center gap-3.5 p-3.5 rounded-xl bg-[#181C24] border border-[#262C38] glow-violet transition-all">
+          <div class="w-9 h-9 rounded-lg bg-[#242031] border border-[#362F4A] flex items-center justify-center font-mono text-xs font-semibold text-[#A78BFA] shrink-0">
+            03
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-medium text-[#9CA3AF]">Stage 3 · Latent Space</span>
+              <span id="status-node-3" class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-[#60A5FA] border border-blue-500/25">WebGL 3D</span>
+            </div>
+            <h2 class="text-sm font-semibold text-[#F3F4F6] truncate mt-0.5">3D Vector Space Projection</h2>
+            <p class="text-xs text-[#9CA3AF] truncate">Lexical orthography vs. semantic meaning</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- STAGE 1: VOCABULARY & BPE TRAINING (CORPUS STUDIO)                    -->
+    <!-- ===================================================================== -->
+    <section id="stage-1" class="glass-panel rounded-2xl p-5 sm:p-6 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[#262C38] pb-4">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold bg-[#181C24] text-[#60A5FA] border border-[#2E3545]">
+              Stage 01
+            </span>
+            <h2 class="font-display text-base sm:text-lg font-bold tracking-tight text-[#F3F4F6]">
+              Vocabulary & BPE Subword Training Studio
+            </h2>
+          </div>
+          <p class="text-xs sm:text-sm text-[#9CA3AF] mt-1">
+            Train a Byte-Pair Encoding (BPE) subword tokenizer and co-occurrence semantic embedding space directly in your browser.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3 text-xs font-mono">
+          <div class="px-3 py-1.5 rounded-lg bg-[#181C24] border border-[#262C38] text-[#9CA3AF]">
+            Corpus Words: <span id="stat-corpus-words" class="text-[#F3F4F6] font-semibold">0</span>
+          </div>
+          <div class="px-3 py-1.5 rounded-lg bg-[#181C24] border border-[#262C38] text-[#9CA3AF]">
+            Vocab Size: <span id="stat-vocab-size" class="text-[#10B981] font-semibold">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left 7 Cols: Training Corpus Editor & Controls -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="flex items-center justify-between">
+            <label for="corpus-input" class="text-xs font-medium text-[#D1D5DB]">
+              Training Corpus (Royalty, Animals, AI/Tech, Food & Morphology)
+            </label>
+            <span class="text-[11px] font-mono text-[#6B7280]">Editable</span>
+          </div>
+
+          <textarea
+            id="corpus-input"
+            rows="7"
+            class="w-full rounded-xl bg-[#0B0D10] border border-[#262C38] focus:border-[#3B82F6] focus:ring-2 focus:ring-blue-500/20 p-3.5 text-xs sm:text-sm font-mono text-[#E5E7EB] leading-relaxed transition outline-none"
+            placeholder="Enter training sentences here..."
+          ></textarea>
+
+          <!-- Hyperparameter Controls -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#181C24] p-4 rounded-xl border border-[#262C38]">
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-1.5">
+                <span class="font-medium text-[#D1D5DB]">BPE Merge Steps</span>
+                <span id="merge-steps-val" class="font-semibold text-[#60A5FA]">48 merges</span>
+              </div>
+              <input
+                id="merge-steps-slider"
+                type="range"
+                min="10"
+                max="85"
+                value="48"
+                class="w-full accent-[#3B82F6] cursor-pointer"
+              />
+              <div class="flex justify-between text-[10px] font-mono text-[#6B7280] mt-1">
+                <span>10 (Char)</span>
+                <span>48 (Subword)</span>
+                <span>85 (Word)</span>
+              </div>
+            </div>
+
+            <div class="flex flex-col justify-center">
+              <button
+                id="btn-train-pipeline"
+                class="cyber-btn w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-white bg-[#2563EB] hover:bg-[#3B82F6] border border-blue-400/20 shadow-sm transition flex items-center justify-center gap-2 active:scale-[0.99]"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Train BPE & Embeddings
+              </button>
+            </div>
+          </div>
+
+          <!-- Training Progress Bar & Live Console Log -->
+          <div class="rounded-xl bg-[#0B0D10] border border-[#262C38] p-3.5 space-y-2.5">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="text-[#9CA3AF] flex items-center gap-2">
+                <span id="train-led" class="w-2 h-2 rounded-full bg-[#10B981]"></span>
+                BPE Merge Execution Log
+              </span>
+              <span id="train-progress-pct" class="text-[#10B981] font-semibold">100%</span>
+            </div>
+            <div class="w-full h-1.5 rounded-full bg-[#181C24] overflow-hidden">
+              <div id="train-progress-bar" class="h-full laser-progress transition-all duration-300" style="width: 100%"></div>
+            </div>
+            <div id="training-log" class="h-28 overflow-y-auto font-mono text-[11px] text-[#D1D5DB] space-y-1 pr-1 leading-relaxed">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 5 Cols: Learned Vocabulary Table -->
+        <div class="lg:col-span-5 flex flex-col rounded-xl bg-[#0B0D10] border border-[#262C38] overflow-hidden">
+          <div class="px-4 py-3 bg-[#181C24] border-b border-[#262C38] flex items-center justify-between">
+            <div>
+              <h3 class="text-xs font-semibold text-[#F3F4F6]">Learned Vocabulary Table</h3>
+              <p class="text-[11px] text-[#9CA3AF]">Base characters + merged subwords</p>
+            </div>
+            <input
+              id="vocab-search"
+              type="text"
+              placeholder="Filter token..."
+              class="w-32 sm:w-40 px-2.5 py-1 rounded-lg bg-[#0B0D10] border border-[#262C38] text-xs font-mono text-[#F3F4F6] placeholder-[#6B7280] focus:border-[#3B82F6] outline-none"
+            />
+          </div>
+
+          <div class="overflow-y-auto max-h-[370px] flex-1">
+            <table class="w-full text-left border-collapse">
+              <thead class="sticky top-0 bg-[#181C24] text-[10px] font-mono uppercase tracking-wider text-[#9CA3AF] border-b border-[#262C38]">
+                <tr>
+                  <th class="py-2 px-3">ID</th>
+                  <th class="py-2 px-3">Token</th>
+                  <th class="py-2 px-3">Freq</th>
+                  <th class="py-2 px-3 text-right">Type</th>
+                </tr>
+              </thead>
+              <tbody id="vocab-table-body" class="divide-y divide-[#1C212B] text-xs font-mono">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- STAGE 2: LIVE SENTENCE TOKENIZATION & SUBWORD BREAKDOWN               -->
+    <!-- ===================================================================== -->
+    <section id="stage-2" class="glass-panel rounded-2xl p-5 sm:p-6 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[#262C38] pb-4">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold bg-[#181C24] text-[#10B981] border border-[#2E3545]">
+              Stage 02
+            </span>
+            <h2 class="font-display text-base sm:text-lg font-bold tracking-tight text-[#F3F4F6]">
+              Live Sentence Tokenization & Subword Breakdown
+            </h2>
+          </div>
+          <p class="text-xs sm:text-sm text-[#9CA3AF] mt-1">
+            Compare brittle whole-word splitting (Out-Of-Vocabulary errors) against trained BPE subword decomposition.
+          </p>
+        </div>
+
+        <!-- Quick Sample Sentence Presets -->
+        <div class="flex flex-wrap items-center gap-1.5 text-xs">
+          <span class="text-[#9CA3AF] mr-1">Samples:</span>
+          <button class="sample-prompt-btn px-2.5 py-1 rounded-lg bg-[#181C24] hover:bg-[#1F2530] text-[#E5E7EB] border border-[#262C38] transition" data-prompt="The king and queen are playing with a neural network algorithm in the kingdom">
+            Royalty + AI
+          </button>
+          <button class="sample-prompt-btn px-2.5 py-1 rounded-lg bg-[#181C24] hover:bg-[#1F2530] text-[#E5E7EB] border border-[#262C38] transition" data-prompt="The king was unbelievably playing with neural transformers while the puppy watched">
+            Unseen Transformers
+          </button>
+        </div>
+      </div>
+
+      <!-- Input Sentence Box -->
+      <div class="space-y-2">
+        <label for="test-sentence-input" class="text-xs font-medium text-[#D1D5DB]">
+          Input Sentence (Updates Tokenizers & Highlights 3D Vector Nodes Live)
+        </label>
+        <input
+          id="test-sentence-input"
+          type="text"
+          value="The king and queen are playing with a neural network algorithm in the kingdom"
+          class="w-full rounded-xl bg-[#0B0D10] border border-[#262C38] focus:border-[#3B82F6] focus:ring-2 focus:ring-blue-500/20 px-4 py-3 text-sm sm:text-base font-mono text-[#F3F4F6] outline-none transition"
+        />
+      </div>
+
+      <!-- Side-by-Side Tokenization Comparison -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left Card: Word-Level Tokenization -->
+        <div class="rounded-xl bg-[#0B0D10] border border-[#262C38] p-4 sm:p-5 flex flex-col justify-between space-y-4">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-[#EF4444]"></span>
+                <h3 class="text-sm font-semibold text-[#F3F4F6]">1. Word-Level Tokenizer</h3>
+              </div>
+              <span id="word-oov-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-red-500/10 text-[#EF4444] border border-red-500/25">
+                0 OOV (&lt;UNK&gt;)
+              </span>
+            </div>
+            <p class="text-xs text-[#9CA3AF]">
+              Splits strictly on whitespace. Any word or morphological variation not seen verbatim in training collapses into <code class="text-[#EF4444] font-mono font-semibold">&lt;UNK&gt;</code>.
+            </p>
+
+            <!-- Word Token Pills -->
+            <div id="word-tokens-container" class="flex flex-wrap gap-2 pt-2 min-h-[96px] content-start">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-[#1E232D] flex items-center justify-between text-xs font-mono text-[#9CA3AF]">
+            <span>Word Tokens: <strong id="word-token-count" class="text-[#F3F4F6]">0</strong></span>
+            <span>OOV Loss: <strong id="word-unk-rate" class="text-[#EF4444]">0%</strong></span>
+          </div>
+        </div>
+
+        <!-- Right Card: Subword BPE Tokenization -->
+        <div class="rounded-xl bg-[#0B0D10] border border-[#262C38] p-4 sm:p-5 flex flex-col justify-between space-y-4">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-[#10B981]"></span>
+                <h3 class="text-sm font-semibold text-[#F3F4F6]">2. BPE Subword Tokenizer</h3>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-emerald-500/10 text-[#10B981] border border-emerald-500/25">
+                0% OOV · Lossless
+              </span>
+            </div>
+            <p class="text-xs text-[#9CA3AF]">
+              Applies learned Stage 1 BPE merge rules to decompose complex words into known roots + affixes (e.g., <code class="text-[#60A5FA] font-mono">play</code> + <code class="text-[#F59E0B] font-mono">##ing</code>).
+            </p>
+
+            <!-- Subword Token Pills -->
+            <div id="subword-tokens-container" class="flex flex-wrap gap-2 pt-2 min-h-[96px] content-start">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-[#1E232D] flex items-center justify-between text-xs font-mono text-[#9CA3AF]">
+            <span>Subword Pieces: <strong id="subword-token-count" class="text-[#10B981]">0</strong></span>
+            <span>Compression: <strong id="subword-compression" class="text-[#60A5FA]">0.0x</strong></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- STAGE 3: INTERACTIVE 3D VECTOR SPACE COMPARISON (THREE.JS)            -->
+    <!-- ===================================================================== -->
+    <section id="stage-3" class="glass-panel rounded-2xl p-5 sm:p-6 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[#262C38] pb-4">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold bg-[#181C24] text-[#60A5FA] border border-[#2E3545]">
+              Stage 03
+            </span>
+            <h2 class="font-display text-base sm:text-lg font-bold tracking-tight text-[#F3F4F6]">
+              3D Vector Space Embedding Projector
+            </h2>
+          </div>
+          <p class="text-xs sm:text-sm text-[#9CA3AF] mt-1">
+            Compare how <strong class="text-[#F59E0B]">Word / Lexical Embeddings</strong> group words by spelling similarity vs. how <strong class="text-[#60A5FA]">Meaning / Semantic Embeddings</strong> group words by contextual meaning.
+          </p>
+        </div>
+
+        <!-- Mode Switcher Segmented Control -->
+        <div class="flex flex-wrap items-center gap-1 bg-[#0B0D10] p-1 rounded-xl border border-[#262C38]">
+          <button id="btn-mode-lexical" class="px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 text-[#9CA3AF] hover:text-[#F3F4F6]">
+            <span class="w-2 h-2 rounded-full bg-[#F59E0B]"></span>
+            Word / Lexical Space
+          </button>
+          <button id="btn-mode-semantic" class="px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 bg-[#2563EB] text-white shadow-sm">
+            <span class="w-2 h-2 rounded-full bg-[#60A5FA]"></span>
+            Meaning / Semantic Space
+          </button>
+          <button id="btn-mode-dual" class="px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 text-[#9CA3AF] hover:text-[#F3F4F6]">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
+            </svg>
+            Side-by-Side Compare
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter & Highlight Controls Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-4 bg-[#181C24] px-4 py-3 rounded-xl border border-[#262C38]">
+        <div class="flex flex-wrap items-center gap-4 text-xs">
+          <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+            <input id="toggle-highlight-sentence" type="checkbox" checked class="rounded bg-[#0B0D10] border-[#374151] text-[#3B82F6] focus:ring-blue-500/30" />
+            <span class="text-[#E5E7EB] font-medium">Highlight Stage 2 Sentence Tokens</span>
+          </label>
+
+          <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+            <input id="toggle-analogy-vectors" type="checkbox" checked class="rounded bg-[#0B0D10] border-[#374151] text-[#3B82F6] focus:ring-blue-500/30" />
+            <span class="text-[#E5E7EB] font-medium">Semantic Analogy Vectors (<code class="text-[#F59E0B] font-mono">king→queen</code>, <code class="text-[#10B981] font-mono">dog→puppy</code>)</span>
+          </label>
+        </div>
+
+        <!-- Category Legend -->
+        <div class="flex flex-wrap items-center gap-3 text-[11px] font-medium">
+          <span class="flex items-center gap-1.5 text-[#D1D5DB]"><span class="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span>Royalty</span>
+          <span class="flex items-center gap-1.5 text-[#D1D5DB]"><span class="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>Animals</span>
+          <span class="flex items-center gap-1.5 text-[#D1D5DB]"><span class="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></span>Tech / AI</span>
+          <span class="flex items-center gap-1.5 text-[#D1D5DB]"><span class="w-2.5 h-2.5 rounded-full bg-[#F43F5E]"></span>Food</span>
+          <span class="flex items-center gap-1.5 text-[#D1D5DB]"><span class="w-2.5 h-2.5 rounded-full bg-[#8B5CF6]"></span>Actions</span>
+        </div>
+      </div>
+
+      <!-- Main 3D Visualization Grid: 3D Viewport (Left 8 Cols) + Nearest Neighbor Inspector (Right 4 Cols) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 3D Canvas Viewport Area -->
+        <div class="lg:col-span-8 space-y-3">
+          <!-- Single Morphing 3D View -->
+          <div id="single-3d-wrapper">
+            <div id="three-container" class="border border-[#262C38]">
+              <!-- Floating Top-Left Space Badge -->
+              <div class="absolute top-3 left-3 z-10 pointer-events-none flex flex-col gap-1.5">
+                <div id="space-mode-banner" class="px-3 py-1.5 rounded-lg bg-[#12151B]/95 backdrop-blur-md border border-[#262C38] text-xs font-medium text-[#F3F4F6] shadow-md">
+                  Active Space: Meaning / Semantic Embeddings
+                </div>
+                <div class="px-2.5 py-1 rounded-md bg-[#12151B]/85 border border-[#262C38] text-[11px] text-[#9CA3AF]">
+                  Drag to orbit · Scroll to zoom · Click any node to inspect
+                </div>
+              </div>
+
+              <!-- Hover Tooltip -->
+              <div id="three-tooltip" class="hidden absolute z-20 pointer-events-none px-3 py-2 rounded-lg bg-[#181C24]/95 border border-[#374151] text-xs shadow-lg">
+                <div class="font-mono font-semibold text-[#F3F4F6]" id="tooltip-word">king</div>
+                <div class="text-[11px] text-[#9CA3AF]" id="tooltip-cluster">Cluster: Royalty</div>
+                <div class="text-[10px] font-mono text-[#60A5FA] mt-0.5" id="tooltip-coords">(0.82, 0.45, -0.12)</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dual Side-by-Side 3D View (Hidden until Dual Mode selected) -->
+          <div id="dual-3d-wrapper" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between px-1">
+                <span class="text-xs font-semibold text-[#F59E0B] flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-[#F59E0B]"></span>
+                  Word / Lexical Space
+                </span>
+                <span class="text-[11px] font-mono text-[#9CA3AF]">king ↔ ring ↔ sing</span>
+              </div>
+              <div id="three-container-lexical" class="dual-canvas-box border border-[#262C38]"></div>
+            </div>
+
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between px-1">
+                <span class="text-xs font-semibold text-[#60A5FA] flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-[#3B82F6]"></span>
+                  Meaning / Semantic Space
+                </span>
+                <span class="text-[11px] font-mono text-[#9CA3AF]">king ↔ queen ↔ prince</span>
+              </div>
+              <div id="three-container-semantic" class="dual-canvas-box border border-[#262C38]"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 4 Cols: Nearest Neighbor & Embedding Comparison Inspector -->
+        <div class="lg:col-span-4 rounded-xl bg-[#0B0D10] border border-[#262C38] p-4 flex flex-col justify-between space-y-4">
+          <div class="space-y-4">
+            <div>
+              <label for="inspect-word-select" class="block text-xs font-medium text-[#D1D5DB] mb-1.5">
+                Selected Token Inspector
+              </label>
+              <select
+                id="inspect-word-select"
+                class="w-full rounded-xl bg-[#181C24] border border-[#262C38] focus:border-[#3B82F6] px-3 py-2 text-sm font-mono text-[#F3F4F6] outline-none"
+              >
+                <!-- Populated by JS -->
+              </select>
+            </div>
+
+            <!-- Selected Token Metadata Card -->
+            <div id="selected-token-card" class="p-3 rounded-xl bg-[#181C24] border border-[#262C38] space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span id="inspector-word-title" class="text-base font-display font-bold text-[#F3F4F6]">king</span>
+                <span id="inspector-word-category" class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-[#12151B] border border-[#2E3545]">
+                  Royalty/People
+                </span>
+              </div>
+              <p id="inspector-word-subwords" class="text-xs font-mono text-[#9CA3AF]">
+                BPE Subwords: [king]
+              </p>
+            </div>
+
+            <!-- Side-by-Side Nearest Neighbors Comparison -->
+            <div class="space-y-3">
+              <!-- Lexical Neighbors -->
+              <div class="rounded-xl bg-[#12151B] border border-[#262C38] p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-semibold text-[#F59E0B]">Lexical Top-4 Neighbors</span>
+                  <span class="text-[10px] font-mono text-[#9CA3AF]">Char Sim</span>
+                </div>
+                <div id="lexical-neighbors-list" class="space-y-1.5 text-xs font-mono">
+                  <!-- Populated by JS -->
+                </div>
+              </div>
+
+              <!-- Semantic Neighbors -->
+              <div class="rounded-xl bg-[#12151B] border border-[#262C38] p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-semibold text-[#60A5FA]">Semantic Top-4 Neighbors</span>
+                  <span class="text-[10px] font-mono text-[#9CA3AF]">Cosine Sim</span>
+                </div>
+                <div id="semantic-neighbors-list" class="space-y-1.5 text-xs font-mono">
+                  <!-- Populated by JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Educational Takeaway Callout -->
+          <div class="p-3 rounded-xl bg-[#181C24] border border-[#262C38] text-xs text-[#9CA3AF] leading-relaxed">
+            <strong class="text-[#F3F4F6] font-semibold">Key Insight:</strong> In Lexical space, <code class="text-[#F59E0B] font-mono">king</code> sits next to <code class="text-[#F59E0B] font-mono">ring</code> &amp; <code class="text-[#F59E0B] font-mono">sing</code> by spelling. In Semantic space, <code class="text-[#60A5FA] font-mono">king</code> clusters beside <code class="text-[#60A5FA] font-mono">queen</code> &amp; <code class="text-[#60A5FA] font-mono">prince</code> by contextual meaning.
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-[#262C38] py-4 px-6 text-center text-xs text-[#6B7280]">
+    LLM Pipeline Explorer · Interactive Subword Tokenizer &amp; 3D Embedding Projector
+  </footer>
+
+  <!-- ======================================================================= -->
+  <!-- APPLICATION LOGIC: BPE TRAINER + EMBEDDING ENGINE + THREE.JS 3D SCENE    -->
+  <!-- ======================================================================= -->
+  <script>
+    // -------------------------------------------------------------------------
+    // 1. DEFAULT CORPUS & SEMANTIC DOMAIN DEFINITIONS
+    // -------------------------------------------------------------------------
+    const DEFAULT_CORPUS = `The king and queen rule the ancient kingdom with wisdom and grace.
+The young prince and princess are playing inside the royal palace of the kingdom.
+A loyal dog and a tiny puppy played happily with a cat and a playful kitten in the garden.
+The brave player was playing an unbelievable game while the singer started to sing a ring song.
+Engineers are training a deep neural network and computer algorithm for modern artificial intelligence.
+Tokenization and subword embedding help the neural algorithm understand language patterns.
+The chef is cooking a fresh apple pie and baked banana bread in the warm kitchen.
+Fresh apple juice and sweet banana smoothies are delicious after cooking dinner.`;
+
+    // Semantic Cluster Anchor Coordinates in 3D Space (x, y, z) — Realistic Scientific Palette
+    const SEMANTIC_CLUSTERS = {
+      royalty: {
+        name: 'Royalty / People',
+        color: '#F59E0B', // Warm Amber
+        hex: 0xF59E0B,
+        center: [-14, 10, 8],
+        keywords: ['king', 'queen', 'prince', 'princess', 'kingdom', 'royal', 'palace', 'rule', 'wisdom', 'grace', 'man', 'woman']
+      },
+      animals: {
+        name: 'Animals / Nature',
+        color: '#10B981', // Emerald Teal
+        hex: 0x10B981,
+        center: [15, 11, -7],
+        keywords: ['dog', 'puppy', 'cat', 'kitten', 'garden', 'loyal', 'tiny', 'playful', 'car']
+      },
+      tech: {
+        name: 'Technology / AI',
+        color: '#3B82F6', // Cobalt Blue
+        hex: 0x3B82F6,
+        center: [12, -11, 10],
+        keywords: ['neural', 'network', 'computer', 'algorithm', 'artificial', 'intelligence', 'tokenization', 'subword', 'embedding', 'engineers', 'training', 'deep', 'language', 'patterns']
+      },
+      food: {
+        name: 'Food / Cooking',
+        color: '#F43F5E', // Coral Rose
+        hex: 0xF43F5E,
+        center: [-13, -10, -9],
+        keywords: ['apple', 'banana', 'cooking', 'baked', 'chef', 'pie', 'bread', 'kitchen', 'juice', 'smoothies', 'delicious', 'dinner', 'fresh', 'sweet', 'warm']
+      },
+      actions: {
+        name: 'Morphology / Actions',
+        color: '#8B5CF6', // Soft Violet
+        hex: 0x8B5CF6,
+        center: [0, 0, -15],
+        keywords: ['playing', 'played', 'player', 'play', 'sing', 'singer', 'ring', 'song', 'unbelievable', 'brave', 'happily', 'started', 'understand']
+      }
+    };
+
+    // Global Pipeline State
+    const pipelineState = {
+      corpusText: DEFAULT_CORPUS,
+      mergeSteps: 48,
+      vocab: [],              // Array of { id, token, freq, type: 'char' | 'subword' }
+      vocabSet: new Set(),    // Fast lookup of all learned subword tokens
+      wholeWordSet: new Set(),// Words seen whole in training corpus (for Word-level OOV comparison)
+      bpeMerges: [],          // Ordered list of [pairLeft, pairRight, mergedToken]
+      embeddings: [],         // Array of { word, clusterKey, clusterName, color, hex, lexicalPos, semanticPos, subwords }
+      selectedWord: 'king',
+      spaceMode: 'semantic',  // 'lexical' | 'semantic' | 'dual'
+      highlightSentence: true,
+      showAnalogies: true,
+      activeSentenceTokens: new Set()
+    };
+
+    // -------------------------------------------------------------------------
+    // 2. REAL IN-BROWSER BYTE-PAIR ENCODING (BPE) TRAINER
+    // -------------------------------------------------------------------------
+    function cleanWordsFromText(text) {
+      return text
+        .toLowerCase()
+        .replace(/[^a-z\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 0);
+    }
+
+    function trainBPEAndEmbeddings(corpusText, maxMerges, onLog) {
+      const words = cleanWordsFromText(corpusText);
+      const wordFreqs = new Map();
+      words.forEach(w => wordFreqs.set(w, (wordFreqs.get(w) || 0) + 1));
+
+      pipelineState.wholeWordSet = new Set(wordFreqs.keys());
+
+      // Represent each word as an array of characters + end-of-word marker '</w>'
+      let splits = new Map();
+      const charFreqs = new Map();
+
+      for (const [word, freq] of wordFreqs.entries()) {
+        const chars = word.split('');
+        chars[chars.length - 1] = chars[chars.length - 1] + '</w>';
+        splits.set(word, chars);
+
+        chars.forEach(ch => {
+          charFreqs.set(ch, (charFreqs.get(ch) || 0) + freq);
+        });
+      }
+
+      // Initialize vocabulary with special tokens + base characters
+      const vocabList = [
+        { id: 0, token: '<PAD>', freq: 0, type: 'special' },
+        { id: 1, token: '<UNK>', freq: 0, type: 'special' }
+      ];
+
+      const sortedChars = Array.from(charFreqs.entries()).sort((a, b) => b[1] - a[1]);
+      sortedChars.forEach(([ch, freq]) => {
+        vocabList.push({
+          id: vocabList.length,
+          token: ch,
+          freq,
+          type: 'char'
+        });
+      });
+
+      const merges = [];
+      onLog(`Extracted ${words.length} total words (${wordFreqs.size} unique) and ${sortedChars.length} base character tokens.`);
+
+      // Perform iterative BPE merges
+      for (let step = 0; step < maxMerges; step++) {
+        const pairCounts = new Map();
+
+        for (const [word, freq] of wordFreqs.entries()) {
+          const syms = splits.get(word);
+          for (let i = 0; i < syms.length - 1; i++) {
+            const pairKey = `${syms[i]}|||${syms[i + 1]}`;
+            pairCounts.set(pairKey, (pairCounts.get(pairKey) || 0) + freq);
+          }
+        }
+
+        if (pairCounts.size === 0) break;
+
+        // Find most frequent adjacent pair
+        let bestPair = null;
+        let bestCount = -1;
+        for (const [pairKey, count] of pairCounts.entries()) {
+          if (count > bestCount) {
+            bestCount = count;
+            bestPair = pairKey;
+          }
+        }
+
+        if (!bestPair || bestCount < 2) {
+          onLog(`Stopped early at step ${step}: remaining pairs have frequency < 2.`);
+          break;
+        }
+
+        const [left, right] = bestPair.split('|||');
+        const merged = left + right;
+        merges.push([left, right, merged]);
+
+        // Add merged subword to vocabulary
+        vocabList.push({
+          id: vocabList.length,
+          token: merged,
+          freq: bestCount,
+          type: 'subword'
+        });
+
+        // Apply merge across all word splits
+        for (const [word, syms] of splits.entries()) {
+          const nextSyms = [];
+          let i = 0;
+          while (i < syms.length) {
+            if (i < syms.length - 1 && syms[i] === left && syms[i + 1] === right) {
+              nextSyms.push(merged);
+              i += 2;
+            } else {
+              nextSyms.push(syms[i]);
+              i += 1;
+            }
+          }
+          splits.set(word, nextSyms);
+        }
+
+        if (step < 6 || step === maxMerges - 1 || step % 12 === 0) {
+          onLog(`Merge #${step + 1}: "${left}" + "${right}" → "${merged}" (freq: ${bestCount})`);
+        }
+      }
+
+      pipelineState.vocab = vocabList;
+      pipelineState.vocabSet = new Set(vocabList.map(v => v.token));
+      pipelineState.bpeMerges = merges;
+
+      // Build 3D Lexical & Semantic Embeddings for curated + corpus words
+      build3DEmbeddings(corpusText, wordFreqs);
+      onLog(`Computed 3D Lexical (orthographic) & Semantic (co-occurrence) vector spaces for ${pipelineState.embeddings.length} tokens.`);
+    }
+
+    // Encode a single word using the learned BPE merge rules
+    function encodeWordBPE(word) {
+      const clean = word.toLowerCase().replace(/[^a-z]/g, '');
+      if (!clean) return [];
+
+      let syms = clean.split('');
+      syms[syms.length - 1] = syms[syms.length - 1] + '</w>';
+
+      for (const [left, right, merged] of pipelineState.bpeMerges) {
+        const nextSyms = [];
+        let i = 0;
+        while (i < syms.length) {
+          if (i < syms.length - 1 && syms[i] === left && syms[i + 1] === right) {
+            nextSyms.push(merged);
+            i += 2;
+          } else {
+            nextSyms.push(syms[i]);
+            i += 1;
+          }
+        }
+        syms = nextSyms;
+      }
+
+      return syms.map((tok, idx) => {
+        const vocabEntry = pipelineState.vocab.find(v => v.token === tok);
+        const display = idx > 0 ? `##${tok.replace('</w>', '')}` : tok.replace('</w>', '');
+        return {
+          raw: tok,
+          display: display || tok,
+          id: vocabEntry ? vocabEntry.id : 1
+        };
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. 3D LEXICAL VS. SEMANTIC EMBEDDING PROJECTION ENGINE
+    // -------------------------------------------------------------------------
+    function classifyWordCluster(word) {
+      for (const [key, cluster] of Object.entries(SEMANTIC_CLUSTERS)) {
+        if (cluster.keywords.includes(word)) {
+          return { key, ...cluster };
+        }
+      }
+      // Substring heuristics for user-added words
+      if (word.includes('king') || word.includes('queen') || word.includes('prince')) {
+        return { key: 'royalty', ...SEMANTIC_CLUSTERS.royalty };
+      }
+      if (word.includes('dog') || word.includes('cat') || word.includes('pup') || word.includes('kit')) {
+        return { key: 'animals', ...SEMANTIC_CLUSTERS.animals };
+      }
+      if (word.includes('neur') || word.includes('algor') || word.includes('token') || word.includes('comp')) {
+        return { key: 'tech', ...SEMANTIC_CLUSTERS.tech };
+      }
+      if (word.includes('cook') || word.includes('bak') || word.includes('apple') || word.includes('banan')) {
+        return { key: 'food', ...SEMANTIC_CLUSTERS.food };
+      }
+      return { key: 'actions', ...SEMANTIC_CLUSTERS.actions };
+    }
+
+    // Deterministic pseudo-random offset from string hash
+    function hashOffset(str, salt = 0) {
+      let h = 2166136261 ^ salt;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return ((h >>> 0) / 4294967295) * 2 - 1;
+    }
+
+    function build3DEmbeddings(corpusText, wordFreqs) {
+      // Ensure showcase words exist so lexical vs semantic contrasts are crystal clear
+      const showcaseWords = [
+        'king', 'queen', 'prince', 'princess', 'kingdom',
+        'ring', 'sing', 'singer',
+        'dog', 'puppy', 'cat', 'kitten', 'car',
+        'neural', 'network', 'algorithm', 'computer', 'tokenization', 'embedding',
+        'apple', 'banana', 'cooking', 'baked', 'kitchen',
+        'play', 'playing', 'played', 'player', 'unbelievable'
+      ];
+
+      const candidateSet = new Set(showcaseWords);
+      for (const [w, freq] of wordFreqs.entries()) {
+        if (w.length >= 3 && freq >= 1 && candidateSet.size < 42) {
+          candidateSet.add(w);
+        }
+      }
+
+      // Build co-occurrence matrix from corpus sentences
+      const sentences = corpusText
+        .toLowerCase()
+        .split(/[.!?\n]+/)
+        .map(s => cleanWordsFromText(s))
+        .filter(arr => arr.length > 0);
+
+      const wordsArray = Array.from(candidateSet);
+      const cooccur = new Map();
+      wordsArray.forEach(w => cooccur.set(w, new Map()));
+
+      sentences.forEach(sent => {
+        for (let i = 0; i < sent.length; i++) {
+          const w1 = sent[i];
+          if (!cooccur.has(w1)) continue;
+          for (let j = Math.max(0, i - 3); j <= Math.min(sent.length - 1, i + 3); j++) {
+            if (i === j) continue;
+            const w2 = sent[j];
+            if (!cooccur.has(w2)) continue;
+            const m = cooccur.get(w1);
+            m.set(w2, (m.get(w2) || 0) + 1);
+          }
+        }
+      });
+
+      // Specific semantic analogy offsets so `king -> queen` parallels `prince -> princess` and `dog -> puppy` parallels `cat -> kitten`
+      const semanticExact = {
+        king:      [-15.5, 11.5, 9.5],
+        queen:     [-11.5, 11.5, 9.5],
+        prince:    [-15.5,  8.0, 6.5],
+        princess:  [-11.5,  8.0, 6.5],
+        kingdom:   [-13.5, 13.5, 5.5],
+
+        dog:       [13.5, 12.5, -5.5],
+        puppy:     [17.0,  9.5, -5.5],
+        cat:       [13.5, 12.5, -9.5],
+        kitten:    [17.0,  9.5, -9.5],
+
+        neural:    [11.0, -9.5, 11.5],
+        network:   [14.5, -9.5, 11.5],
+        algorithm: [12.5, -13.0, 9.0],
+        computer:  [15.5, -12.0, 7.5],
+        tokenization: [9.5, -12.5, 12.5],
+        embedding: [10.0, -8.5, 8.0],
+
+        apple:     [-14.5, -9.0, -7.5],
+        banana:    [-11.5, -9.0, -7.5],
+        cooking:   [-13.5, -12.5, -10.5],
+        baked:     [-10.5, -12.0, -10.5],
+        kitchen:   [-15.5, -11.5, -11.5],
+
+        play:      [-2.0,  1.5, -14.0],
+        playing:   [ 1.0,  2.5, -15.5],
+        played:    [ 1.5, -0.5, -14.5],
+        player:    [-1.5, -1.5, -16.0],
+        sing:      [ 4.0,  2.0, -13.0],
+        singer:    [ 5.5,  0.5, -14.5],
+        ring:      [ 3.5,  4.0, -12.0],
+        car:       [16.5,  4.0, -2.0],
+        unbelievable: [-4.5, -2.0, -15.5]
+      };
+
+      // Lexical (Spelling/Orthographic) exact landmarks so rhyming/prefix words cluster tightly!
+      const lexicalExact = {
+        // "-ing" / "king" / "ring" / "sing" cluster
+        king:      [13.0, 11.0,  8.0],
+        kingdom:   [15.2, 12.5,  9.5],
+        ring:      [12.2,  9.5,  7.2],
+        sing:      [11.8, 10.2,  6.5],
+        singer:    [10.5,  8.8,  5.5],
+        playing:   [13.8,  7.5,  9.2],
+        cooking:   [14.5,  6.8,  6.5],
+        embedding: [11.2,  6.5,  9.8],
+
+        // "play-" morphological prefix cluster
+        play:      [-12.5, 10.5,  8.5],
+        played:    [-14.2, 11.8,  9.2],
+        player:    [-13.5,  9.0,  7.5],
+
+        // "ca-" / short CVC cluster ("cat" right next to "car"!)
+        cat:       [12.0, -10.5, -8.5],
+        car:       [13.1, -11.2, -7.8],
+        apple:     [ 9.5,  -8.5, -9.5],
+        banana:    [ 8.2, -11.5, -6.5],
+        baked:     [10.2,  -7.5, -6.0],
+
+        // "princ-" prefix cluster
+        prince:    [-13.5, -10.0,  8.5],
+        princess:  [-15.2, -11.2,  9.5],
+        queen:     [-10.5,  -7.5, -9.0], // Far away from "king" in lexical space!
+
+        // "-en" / "-ion" / tech suffixes
+        kitten:    [-11.5, -11.5, -7.5],
+        kitchen:   [-12.8, -10.5, -6.5],
+        dog:       [  2.0, -13.5,  4.0],
+        puppy:     [ -2.5, -12.0,  5.5],
+        neural:    [ -4.0,   3.5, -13.5],
+        network:   [ -1.5,   5.5, -14.5],
+        algorithm: [  3.5,   2.5, -13.0],
+        computer:  [  1.5,  -1.5, -15.0],
+        tokenization: [-5.5, 1.5, -15.5],
+        unbelievable: [-7.5, 4.5, -12.5]
+      };
+
+      const embeddings = wordsArray.map(word => {
+        const cluster = classifyWordCluster(word);
+
+        // Compute Semantic Position
+        let semPos;
+        if (semanticExact[word]) {
+          semPos = [...semanticExact[word]];
+        } else {
+          // Pull towards co-occurring neighbors + cluster center
+          let cx = cluster.center[0];
+          let cy = cluster.center[1];
+          let cz = cluster.center[2];
+          const neighbors = cooccur.get(word);
+          let totalW = 1;
+          if (neighbors) {
+            for (const [nw, cnt] of neighbors.entries()) {
+              if (semanticExact[nw]) {
+                cx += semanticExact[nw][0] * cnt * 0.4;
+                cy += semanticExact[nw][1] * cnt * 0.4;
+                cz += semanticExact[nw][2] * cnt * 0.4;
+                totalW += cnt * 0.4;
+              }
+            }
+          }
+          semPos = [
+            cx / totalW + hashOffset(word, 1) * 2.5,
+            cy / totalW + hashOffset(word, 2) * 2.5,
+            cz / totalW + hashOffset(word, 3) * 2.5
+          ];
+        }
+
+        // Compute Lexical Position (based on first/last characters & length)
+        let lexPos;
+        if (lexicalExact[word]) {
+          lexPos = [...lexicalExact[word]];
+        } else {
+          const firstCharAngle = ((word.charCodeAt(0) - 97) / 26) * Math.PI * 2;
+          const lastCharAngle = ((word.charCodeAt(word.length - 1) - 97) / 26) * Math.PI * 2;
+          const radius = 11 + (word.length % 5);
+          lexPos = [
+            Math.cos(firstCharAngle) * radius + hashOffset(word, 11) * 2,
+            Math.sin(lastCharAngle) * radius + hashOffset(word, 12) * 2,
+            Math.sin(firstCharAngle) * radius + hashOffset(word, 13) * 2
+          ];
+        }
+
+        return {
+          word,
+          clusterKey: cluster.key,
+          clusterName: cluster.name,
+          color: cluster.color,
+          hex: cluster.hex,
+          lexicalPos: lexPos,
+          semanticPos: semPos,
+          subwords: encodeWordBPE(word)
+        };
+      });
+
+      pipelineState.embeddings = embeddings;
+    }
+
+    // Compute Cosine Similarity / Distance Neighbors in 3D space
+    function getNearestNeighbors(targetWord, mode = 'semantic', topK = 4) {
+      const target = pipelineState.embeddings.find(e => e.word === targetWord);
+      if (!target) return [];
+
+      const posKey = mode === 'lexical' ? 'lexicalPos' : 'semanticPos';
+      const [tx, ty, tz] = target[posKey];
+
+      const scored = pipelineState.embeddings
+        .filter(e => e.word !== targetWord)
+        .map(other => {
+          const [ox, oy, oz] = other[posKey];
+          const dist = Math.hypot(tx - ox, ty - oy, tz - oz);
+          // Convert Euclidean distance into a clean 0.00 - 0.99 similarity score
+          const sim = Math.max(0.05, Math.exp(-dist / 16));
+          return {
+            word: other.word,
+            clusterName: other.clusterName,
+            color: other.color,
+            dist: dist.toFixed(2),
+            sim: sim.toFixed(3)
+          };
+        })
+        .sort((a, b) => parseFloat(b.sim) - parseFloat(a.sim));
+
+      return scored.slice(0, topK);
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. THREE.JS 3D INTERACTIVE VECTOR SPACE ENGINE
+    // -------------------------------------------------------------------------
+    class VectorSpace3D {
+      constructor(containerId, fixedMode = null) {
+        this.container = document.getElementById(containerId);
+        this.fixedMode = fixedMode; // null = morphable main view; 'lexical' or 'semantic' = locked dual view
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(48, this.container.clientWidth / this.container.clientHeight, 0.1, 1000);
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.container.appendChild(this.renderer.domElement);
+
+        // Orbit Camera State
+        this.spherical = { radius: 44, theta: 0.65, phi: 1.15 };
+        this.isDragging = false;
+        this.prevMouse = { x: 0, y: 0 };
+        this.dragDistance = 0;
+
+        // Scene Objects
+        this.nodeGroups = []; // { data, group, sphere, ring, sprite, currentPos, targetPos }
+        this.edgeLines = null;
+        this.analogyGroup = new THREE.Group();
+        this.scene.add(this.analogyGroup);
+
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2(-99, -99);
+
+        this.setupEnvironment();
+        this.bindEvents();
+      }
+
+      setupEnvironment() {
+        // Realistic Studio Ambient & Key/Fill Directional Lighting
+        const ambient = new THREE.AmbientLight(0xf3f4f6, 0.72);
+        this.scene.add(ambient);
+
+        const keyLight = new THREE.DirectionalLight(0xffffff, 0.85);
+        keyLight.position.set(28, 36, 24);
+        this.scene.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.35);
+        fillLight.position.set(-24, -18, -22);
+        this.scene.add(fillLight);
+
+        // Fine Neutral Architectural Reference Grid & Coordinate Axes
+        const gridHelper = new THREE.GridHelper(46, 23, 0x2A313D, 0x1C212B);
+        gridHelper.position.y = -17;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.65;
+        this.scene.add(gridHelper);
+
+        const axesMaterial = new THREE.LineBasicMaterial({ color: 0x374151, transparent: true, opacity: 0.55 });
+        const axesGeom = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-22, 0, 0), new THREE.Vector3(22, 0, 0),
+          new THREE.Vector3(0, -17, 0), new THREE.Vector3(0, 20, 0),
+          new THREE.Vector3(0, 0, -22), new THREE.Vector3(0, 0, 22)
+        ]);
+        this.scene.add(new THREE.LineSegments(axesGeom, axesMaterial));
+
+        this.updateCameraPosition();
+      }
+
+      updateCameraPosition() {
+        const { radius, theta, phi } = this.spherical;
+        this.camera.position.x = radius * Math.sin(phi) * Math.cos(theta);
+        this.camera.position.y = radius * Math.cos(phi);
+        this.camera.position.z = radius * Math.sin(phi) * Math.sin(theta);
+        this.camera.lookAt(0, 0, 0);
+      }
+
+      createTextSprite(text, colorHex, isHighlighted = false) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 64;
+
+        // Clean Studio Pill Label Background
+        ctx.fillStyle = isHighlighted ? 'rgba(59, 130, 246, 0.94)' : 'rgba(18, 21, 27, 0.88)';
+        ctx.strokeStyle = isHighlighted ? '#93C5FD' : colorHex;
+        ctx.lineWidth = isHighlighted ? 3 : 2;
+
+        const padX = 18;
+        const boxW = Math.min(240, Math.max(96, text.length * 16 + padX * 2));
+        const boxX = (256 - boxW) / 2;
+
+        ctx.beginPath();
+        ctx.roundRect(boxX, 12, boxW, 40, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        // Crisp Word Label
+        ctx.font = '600 21px "JetBrains Mono", monospace';
+        ctx.fillStyle = isHighlighted ? '#FFFFFF' : '#F3F4F6';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 128, 33);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(6.0, 1.5, 1);
+        sprite.position.set(0, 1.3, 0);
+        return sprite;
+      }
+
+      rebuildNodes() {
+        // Clear old nodes
+        this.nodeGroups.forEach(item => this.scene.remove(item.group));
+        this.nodeGroups = [];
+
+        const activeMode = this.fixedMode || (pipelineState.spaceMode === 'lexical' ? 'lexical' : 'semantic');
+
+        pipelineState.embeddings.forEach(emb => {
+          const group = new THREE.Group();
+          const startPos = activeMode === 'lexical' ? emb.lexicalPos : emb.semanticPos;
+          group.position.set(startPos[0], startPos[1], startPos[2]);
+
+          const isSentenceToken = pipelineState.highlightSentence && pipelineState.activeSentenceTokens.has(emb.word);
+          const isSelected = pipelineState.selectedWord === emb.word;
+
+          // Matte-Gloss Scientific Sphere with Subtle Specular Highlight
+          const geom = new THREE.SphereGeometry(isSelected ? 0.82 : 0.56, 32, 32);
+          const mat = new THREE.MeshStandardMaterial({
+            color: emb.hex,
+            emissive: emb.hex,
+            emissiveIntensity: isSelected ? 0.25 : (isSentenceToken ? 0.14 : 0.06),
+            roughness: 0.32,
+            metalness: 0.12
+          });
+          const sphere = new THREE.Mesh(geom, mat);
+          sphere.userData = { word: emb.word };
+          group.add(sphere);
+
+          // Clean Selection / Active Token Indicator Ring
+          let ring = null;
+          if (isSelected || isSentenceToken) {
+            const ringGeom = new THREE.RingGeometry(0.88, 1.04, 36);
+            const ringMat = new THREE.MeshBasicMaterial({
+              color: isSelected ? 0xF3F4F6 : 0x60A5FA,
+              side: THREE.DoubleSide,
+              transparent: true,
+              opacity: 0.85
+            });
+            ring = new THREE.Mesh(ringGeom, ringMat);
+            group.add(ring);
+          }
+
+          // Floating Label Sprite
+          const sprite = this.createTextSprite(emb.word, emb.color, isSelected || isSentenceToken);
+          group.add(sprite);
+
+          this.scene.add(group);
+          this.nodeGroups.push({
+            data: emb,
+            group,
+            sphere,
+            ring,
+            currentPos: new THREE.Vector3(...startPos),
+            targetPos: new THREE.Vector3(...startPos)
+          });
+        });
+
+        this.rebuildConnectionsAndAnalogies();
+      }
+
+      rebuildConnectionsAndAnalogies() {
+        if (this.edgeLines) {
+          this.scene.remove(this.edgeLines);
+          this.edgeLines = null;
+        }
+        while (this.analogyGroup.children.length > 0) {
+          this.analogyGroup.remove(this.analogyGroup.children[0]);
+        }
+
+        const activeMode = this.fixedMode || (pipelineState.spaceMode === 'lexical' ? 'lexical' : 'semantic');
+        const posKey = activeMode === 'lexical' ? 'lexicalPos' : 'semanticPos';
+
+        // Connect each node to its top 2 nearest neighbors with faint glowing lines
+        const linePoints = [];
+        const lineColors = [];
+
+        this.nodeGroups.forEach(nodeA => {
+          const neighbors = getNearestNeighbors(nodeA.data.word, activeMode, 2);
+          const colA = new THREE.Color(nodeA.data.hex);
+
+          neighbors.forEach(nb => {
+            const nodeB = this.nodeGroups.find(n => n.data.word === nb.word);
+            if (!nodeB) return;
+            linePoints.push(nodeA.targetPos.clone(), nodeB.targetPos.clone());
+            lineColors.push(colA.r, colA.g, colA.b, colA.r, colA.g, colA.b);
+          });
+        });
+
+        if (linePoints.length > 0) {
+          const lineGeom = new THREE.BufferGeometry().setFromPoints(linePoints);
+          lineGeom.setAttribute('color', new THREE.Float32BufferAttribute(lineColors, 3));
+          const lineMat = new THREE.LineBasicMaterial({
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.24
+          });
+          this.edgeLines = new THREE.LineSegments(lineGeom, lineMat);
+          this.scene.add(this.edgeLines);
+        }
+
+        // Draw Semantic Vector Analogy Arrows in Semantic Mode
+        if (activeMode === 'semantic' && pipelineState.showAnalogies) {
+          const pairs = [
+            ['king', 'queen', 0xF59E0B],
+            ['prince', 'princess', 0xF59E0B],
+            ['dog', 'puppy', 0x10B981],
+            ['cat', 'kitten', 0x10B981]
+          ];
+
+          pairs.forEach(([fromWord, toWord, hex]) => {
+            const fromNode = this.nodeGroups.find(n => n.data.word === fromWord);
+            const toNode = this.nodeGroups.find(n => n.data.word === toWord);
+            if (fromNode && toNode) {
+              const dir = new THREE.Vector3().subVectors(toNode.targetPos, fromNode.targetPos);
+              const len = dir.length();
+              if (len > 0.1) {
+                const arrow = new THREE.ArrowHelper(
+                  dir.normalize(),
+                  fromNode.targetPos,
+                  len - 0.7,
+                  hex,
+                  0.85,
+                  0.5
+                );
+                this.analogyGroup.add(arrow);
+              }
+            }
+          });
+        }
+      }
+
+      setTargetSpace(mode) {
+        const activeMode = this.fixedMode || mode;
+        const posKey = activeMode === 'lexical' ? 'lexicalPos' : 'semanticPos';
+        this.nodeGroups.forEach(item => {
+          const [x, y, z] = item.data[posKey];
+          item.targetPos.set(x, y, z);
+        });
+        this.rebuildConnectionsAndAnalogies();
+      }
+
+      bindEvents() {
+        const dom = this.renderer.domElement;
+
+        dom.addEventListener('mousedown', (e) => {
+          this.isDragging = true;
+          this.dragDistance = 0;
+          this.prevMouse = { x: e.clientX, y: e.clientY };
+        });
+
+        window.addEventListener('mouseup', () => {
+          this.isDragging = false;
+        });
+
+        dom.addEventListener('mousemove', (e) => {
+          const rect = dom.getBoundingClientRect();
+          this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+          if (this.isDragging) {
+            const dx = e.clientX - this.prevMouse.x;
+            const dy = e.clientY - this.prevMouse.y;
+            this.dragDistance += Math.hypot(dx, dy);
+            this.spherical.theta -= dx * 0.0075;
+            this.spherical.phi = Math.max(0.2, Math.min(Math.PI - 0.2, this.spherical.phi - dy * 0.0075));
+            this.prevMouse = { x: e.clientX, y: e.clientY };
+            this.updateCameraPosition();
+          } else {
+            this.handleHover(e.clientX - rect.left, e.clientY - rect.top);
+          }
+        });
+
+        dom.addEventListener('click', () => {
+          if (this.dragDistance > 6) return;
+          this.raycaster.setFromCamera(this.mouse, this.camera);
+          const spheres = this.nodeGroups.map(n => n.sphere);
+          const hits = this.raycaster.intersectObjects(spheres);
+          if (hits.length > 0) {
+            const clickedWord = hits[0].object.userData.word;
+            if (clickedWord) {
+              selectInspectedWord(clickedWord);
+            }
+          }
+        });
+
+        dom.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          this.spherical.radius = Math.max(18, Math.min(80, this.spherical.radius + e.deltaY * 0.03));
+          this.updateCameraPosition();
+        }, { passive: false });
+
+        // Touch support for mobile orbit
+        dom.addEventListener('touchstart', (e) => {
+          if (e.touches.length === 1) {
+            this.isDragging = true;
+            this.prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }
+        }, { passive: true });
+
+        dom.addEventListener('touchmove', (e) => {
+          if (this.isDragging && e.touches.length === 1) {
+            const dx = e.touches[0].clientX - this.prevMouse.x;
+            const dy = e.touches[0].clientY - this.prevMouse.y;
+            this.spherical.theta -= dx * 0.008;
+            this.spherical.phi = Math.max(0.2, Math.min(Math.PI - 0.2, this.spherical.phi - dy * 0.008));
+            this.prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            this.updateCameraPosition();
+          }
+        }, { passive: true });
+
+        dom.addEventListener('touchend', () => {
+          this.isDragging = false;
+        });
+      }
+
+      handleHover(offsetX, offsetY) {
+        if (this.fixedMode) return; // Tooltip on primary canvas
+        const tooltip = document.getElementById('three-tooltip');
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const spheres = this.nodeGroups.map(n => n.sphere);
+        const hits = this.raycaster.intersectObjects(spheres);
+
+        if (hits.length > 0) {
+          const word = hits[0].object.userData.word;
+          const emb = pipelineState.embeddings.find(e => e.word === word);
+          if (emb) {
+            const pos = pipelineState.spaceMode === 'lexical' ? emb.lexicalPos : emb.semanticPos;
+            document.getElementById('tooltip-word').textContent = emb.word;
+            document.getElementById('tooltip-cluster').textContent = `Theme: ${emb.clusterName}`;
+            document.getElementById('tooltip-coords').textContent = `3D: (${pos[0].toFixed(1)}, ${pos[1].toFixed(1)}, ${pos[2].toFixed(1)})`;
+            tooltip.style.left = `${Math.min(offsetX + 14, this.container.clientWidth - 175)}px`;
+            tooltip.style.top = `${Math.max(offsetY - 12, 12)}px`;
+            tooltip.classList.remove('hidden');
+            this.renderer.domElement.style.cursor = 'pointer';
+          }
+        } else {
+          tooltip.classList.add('hidden');
+          this.renderer.domElement.style.cursor = this.isDragging ? 'grabbing' : 'grab';
+        }
+      }
+
+      resize() {
+        if (!this.container.clientWidth || !this.container.clientHeight) return;
+        this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+      }
+
+      render() {
+        // Smoothly interpolate node positions for animated morphing between Lexical & Semantic spaces!
+        this.nodeGroups.forEach(item => {
+          item.currentPos.lerp(item.targetPos, 0.085);
+          item.group.position.copy(item.currentPos);
+          if (item.ring) {
+            item.ring.lookAt(this.camera.position);
+          }
+        });
+
+        // Gently auto-rotate when idle
+        if (!this.isDragging) {
+          this.spherical.theta += 0.0014;
+          this.updateCameraPosition();
+        }
+
+        this.renderer.render(this.scene, this.camera);
+      }
+    }
+
+    let main3D = null;
+    let dualLexical3D = null;
+    let dualSemantic3D = null;
+
+    // -------------------------------------------------------------------------
+    // 5. UI RENDERING & INTERACTION CONTROLLERS
+    // -------------------------------------------------------------------------
+    function renderVocabTable(filterQuery = '') {
+      const tbody = document.getElementById('vocab-table-body');
+      const q = filterQuery.trim().toLowerCase();
+
+      const filtered = pipelineState.vocab.filter(item =>
+        !q || item.token.toLowerCase().includes(q)
+      );
+
+      tbody.innerHTML = filtered.map(item => {
+        let badgeClass = 'bg-[#181C24] text-[#9CA3AF] border-[#262C38]';
+        let label = 'CHAR';
+        if (item.type === 'special') {
+          badgeClass = 'bg-red-500/10 text-[#EF4444] border-red-500/25';
+          label = 'SPEC';
+        } else if (item.type === 'subword') {
+          badgeClass = 'bg-blue-500/10 text-[#60A5FA] border-blue-500/25';
+          label = 'BPE';
+        }
+
+        const displayToken = item.token.replace('</w>', '▁');
+
+        return `
+          <tr class="hover:bg-[#181C24]/80 transition">
+            <td class="py-1.5 px-3 text-[#6B7280]">#${item.id}</td>
+            <td class="py-1.5 px-3 font-medium text-[#F3F4F6]">${escapeHtml(displayToken)}</td>
+            <td class="py-1.5 px-3 text-[#9CA3AF]">${item.freq}</td>
+            <td class="py-1.5 px-3 text-right">
+              <span class="px-1.5 py-0.5 rounded text-[10px] border ${badgeClass}">${label}</span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function updateStage2Tokenization() {
+      const sentence = document.getElementById('test-sentence-input').value;
+      const rawWords = sentence.trim().split(/\s+/).filter(Boolean);
+
+      pipelineState.activeSentenceTokens = new Set(
+        rawWords.map(w => w.toLowerCase().replace(/[^a-z]/g, '')).filter(Boolean)
+      );
+
+      // 1. Word-Level Tokenization
+      const wordContainer = document.getElementById('word-tokens-container');
+      let oovCount = 0;
+
+      wordContainer.innerHTML = rawWords.map((rawWord, idx) => {
+        const normalized = rawWord.toLowerCase().replace(/[^a-z]/g, '');
+        const isKnown = normalized && pipelineState.wholeWordSet.has(normalized);
+        if (!isKnown) oovCount++;
+
+        if (isKnown) {
+          return `
+            <div class="flex flex-col items-center px-2.5 py-1.5 rounded-lg bg-[#181C24] border border-[#262C38]">
+              <span class="text-xs font-mono font-medium text-[#F3F4F6]">${escapeHtml(rawWord)}</span>
+              <span class="text-[10px] font-mono text-[#6B7280] mt-0.5">W-${idx + 1}</span>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="flex flex-col items-center px-2.5 py-1.5 rounded-lg bg-red-950/35 border border-red-500/40" title="Out-Of-Vocabulary word: not seen verbatim in training!">
+              <span class="text-xs font-mono font-semibold text-[#EF4444]">&lt;UNK&gt;</span>
+              <span class="text-[10px] font-mono text-red-400/80 mt-0.5 line-through">${escapeHtml(rawWord)}</span>
+            </div>
+          `;
+        }
+      }).join('');
+
+      document.getElementById('word-token-count').textContent = rawWords.length;
+      const unkRate = rawWords.length ? Math.round((oovCount / rawWords.length) * 100) : 0;
+      document.getElementById('word-unk-rate').textContent = `${unkRate}%`;
+      document.getElementById('word-oov-badge').textContent = `${oovCount} OOV (<UNK>)`;
+
+      // 2. Trained BPE Subword Tokenization
+      const subwordContainer = document.getElementById('subword-tokens-container');
+      const pillPalettes = [
+        'bg-blue-500/10 border-blue-500/30 text-blue-200',
+        'bg-emerald-500/10 border-emerald-500/30 text-emerald-200',
+        'bg-amber-500/10 border-amber-500/30 text-amber-200',
+        'bg-violet-500/10 border-violet-500/30 text-violet-200'
+      ];
+
+      let allSubwords = [];
+      rawWords.forEach((rawWord, wIdx) => {
+        const pieces = encodeWordBPE(rawWord);
+        pieces.forEach(p => allSubwords.push({ ...p, wordIdx: wIdx }));
+      });
+
+      subwordContainer.innerHTML = allSubwords.map(piece => {
+        const palette = pillPalettes[piece.wordIdx % pillPalettes.length];
+        return `
+          <div class="flex flex-col items-center px-2.5 py-1.5 rounded-lg border ${palette}">
+            <span class="text-xs font-mono font-semibold">${escapeHtml(piece.display)}</span>
+            <span class="text-[10px] font-mono opacity-75 mt-0.5">ID:${piece.id}</span>
+          </div>
+        `;
+      }).join('');
+
+      const totalChars = rawWords.join('').length;
+      const ratio = allSubwords.length ? (totalChars / allSubwords.length).toFixed(2) : '0.00';
+      document.getElementById('subword-token-count').textContent = allSubwords.length;
+      document.getElementById('subword-compression').textContent = `${ratio} chars/tok`;
+
+      // Refresh 3D highlights if active
+      if (main3D) main3D.rebuildNodes();
+      if (dualLexical3D) dualLexical3D.rebuildNodes();
+      if (dualSemantic3D) dualSemantic3D.rebuildNodes();
+    }
+
+    function populateInspectorDropdown() {
+      const select = document.getElementById('inspect-word-select');
+      const sorted = [...pipelineState.embeddings].sort((a, b) => a.word.localeCompare(b.word));
+      select.innerHTML = sorted.map(e =>
+        `<option value="${e.word}" ${e.word === pipelineState.selectedWord ? 'selected' : ''}>${e.word} (${e.clusterName})</option>`
+      ).join('');
+    }
+
+    function selectInspectedWord(word) {
+      pipelineState.selectedWord = word;
+      const select = document.getElementById('inspect-word-select');
+      if (select.value !== word) select.value = word;
+
+      const emb = pipelineState.embeddings.find(e => e.word === word);
+      if (!emb) return;
+
+      document.getElementById('inspector-word-title').textContent = emb.word;
+      const catBadge = document.getElementById('inspector-word-category');
+      catBadge.textContent = emb.clusterName;
+      catBadge.style.color = emb.color;
+      catBadge.style.borderColor = emb.color;
+
+      const subwordStr = emb.subwords.map(s => `${s.display} (#${s.id})`).join(' + ');
+      document.getElementById('inspector-word-subwords').textContent = `BPE Subwords: [ ${subwordStr} ]`;
+
+      // Render Lexical Top-4 Neighbors
+      const lexNeighbors = getNearestNeighbors(word, 'lexical', 4);
+      document.getElementById('lexical-neighbors-list').innerHTML = lexNeighbors.map(nb => `
+        <div class="flex items-center justify-between py-1 px-2 rounded bg-[#181C24] hover:bg-[#1F242F] cursor-pointer transition" onclick="selectInspectedWord('${nb.word}')">
+          <span class="text-[#F3F4F6] font-medium">${nb.word}</span>
+          <span class="text-[#F59E0B]">${nb.sim}</span>
+        </div>
+      `).join('');
+
+      // Render Semantic Top-4 Neighbors
+      const semNeighbors = getNearestNeighbors(word, 'semantic', 4);
+      document.getElementById('semantic-neighbors-list').innerHTML = semNeighbors.map(nb => `
+        <div class="flex items-center justify-between py-1 px-2 rounded bg-[#181C24] hover:bg-[#1F242F] cursor-pointer transition" onclick="selectInspectedWord('${nb.word}')">
+          <span class="text-[#F3F4F6] font-medium">${nb.word}</span>
+          <span class="text-[#60A5FA]">${nb.sim}</span>
+        </div>
+      `).join('');
+
+      if (main3D) main3D.rebuildNodes();
+      if (dualLexical3D) dualLexical3D.rebuildNodes();
+      if (dualSemantic3D) dualSemantic3D.rebuildNodes();
+    }
+
+    function setSpaceMode(mode) {
+      pipelineState.spaceMode = mode;
+
+      const btnLex = document.getElementById('btn-mode-lexical');
+      const btnSem = document.getElementById('btn-mode-semantic');
+      const btnDual = document.getElementById('btn-mode-dual');
+      const singleWrap = document.getElementById('single-3d-wrapper');
+      const dualWrap = document.getElementById('dual-3d-wrapper');
+      const banner = document.getElementById('space-mode-banner');
+
+      // Reset button styles
+      [btnLex, btnSem, btnDual].forEach(b => {
+        b.className = 'px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 text-[#9CA3AF] hover:text-[#F3F4F6]';
+      });
+
+      if (mode === 'lexical') {
+        btnLex.className = 'px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 bg-[#D97706] text-white shadow-sm';
+        singleWrap.classList.remove('hidden');
+        dualWrap.classList.add('hidden');
+        banner.textContent = 'Active Space: Word / Lexical Orthography';
+        banner.className = 'px-3 py-1.5 rounded-lg bg-[#12151B]/95 backdrop-blur-md border border-[#F59E0B]/40 text-xs font-medium text-[#FBBF24] shadow-md';
+        if (main3D) {
+          main3D.setTargetSpace('lexical');
+          main3D.resize();
+        }
+      } else if (mode === 'semantic') {
+        btnSem.className = 'px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 bg-[#2563EB] text-white shadow-sm';
+        singleWrap.classList.remove('hidden');
+        dualWrap.classList.add('hidden');
+        banner.textContent = 'Active Space: Meaning / Semantic Embeddings';
+        banner.className = 'px-3 py-1.5 rounded-lg bg-[#12151B]/95 backdrop-blur-md border border-[#3B82F6]/40 text-xs font-medium text-[#93C5FD] shadow-md';
+        if (main3D) {
+          main3D.setTargetSpace('semantic');
+          main3D.resize();
+        }
+      } else if (mode === 'dual') {
+        btnDual.className = 'px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 bg-[#262C38] text-[#F3F4F6] border border-[#374151] shadow-sm';
+        singleWrap.classList.add('hidden');
+        dualWrap.classList.remove('hidden');
+        setTimeout(() => {
+          if (dualLexical3D) {
+            dualLexical3D.rebuildNodes();
+            dualLexical3D.resize();
+          }
+          if (dualSemantic3D) {
+            dualSemantic3D.rebuildNodes();
+            dualSemantic3D.resize();
+          }
+        }, 30);
+      }
+    }
+
+    // Animated Training Execution Pipeline
+    function runTrainingPipeline(animateProgress = true) {
+      const corpusText = document.getElementById('corpus-input').value;
+      const mergeSteps = parseInt(document.getElementById('merge-steps-slider').value, 10);
+      const logBox = document.getElementById('training-log');
+      const progressBar = document.getElementById('train-progress-bar');
+      const progressPct = document.getElementById('train-progress-pct');
+
+      pipelineState.corpusText = corpusText;
+      pipelineState.mergeSteps = mergeSteps;
+      logBox.innerHTML = '';
+
+      const appendLog = (msg) => {
+        const line = document.createElement('div');
+        line.innerHTML = `<span class="text-[#60A5FA]">›</span> ${escapeHtml(msg)}`;
+        logBox.appendChild(line);
+        logBox.scrollTop = logBox.scrollHeight;
+      };
+
+      const executeCore = () => {
+        trainBPEAndEmbeddings(corpusText, mergeSteps, appendLog);
+
+        const words = cleanWordsFromText(corpusText);
+        document.getElementById('stat-corpus-words').textContent = words.length;
+        document.getElementById('stat-vocab-size').textContent = pipelineState.vocab.length;
+
+        renderVocabTable(document.getElementById('vocab-search').value);
+        updateStage2Tokenization();
+        populateInspectorDropdown();
+
+        if (!pipelineState.embeddings.some(e => e.word === pipelineState.selectedWord)) {
+          pipelineState.selectedWord = pipelineState.embeddings[0]?.word || 'king';
+        }
+        selectInspectedWord(pipelineState.selectedWord);
+
+        if (main3D) main3D.rebuildNodes();
+        if (dualLexical3D) dualLexical3D.rebuildNodes();
+        if (dualSemantic3D) dualSemantic3D.rebuildNodes();
+      };
+
+      if (!animateProgress) {
+        progressBar.style.width = '100%';
+        progressPct.textContent = '100%';
+        executeCore();
+        return;
+      }
+
+      // Smooth visual training bar sequence
+      let pct = 10;
+      progressBar.style.width = '10%';
+      progressPct.textContent = '10%';
+      appendLog('Initializing BPE character inventory & context window...');
+
+      const timer = setInterval(() => {
+        pct += 30;
+        if (pct >= 100) {
+          clearInterval(timer);
+          progressBar.style.width = '100%';
+          progressPct.textContent = '100%';
+          executeCore();
+        } else {
+          progressBar.style.width = `${pct}%`;
+          progressPct.textContent = `${pct}%`;
+        }
+      }, 110);
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. INITIALIZATION & WINDOW ONLOAD
+    // -------------------------------------------------------------------------
+    window.onload = function () {
+      // Load default corpus into editor
+      document.getElementById('corpus-input').value = DEFAULT_CORPUS;
+
+      // Initialize Three.js Viewports
+      main3D = new VectorSpace3D('three-container', null);
+      dualLexical3D = new VectorSpace3D('three-container-lexical', 'lexical');
+      dualSemantic3D = new VectorSpace3D('three-container-semantic', 'semantic');
+
+      // Run initial training pass immediately
+      runTrainingPipeline(false);
+
+      // Event Listeners: Stage 1
+      const mergeSlider = document.getElementById('merge-steps-slider');
+      mergeSlider.addEventListener('input', (e) => {
+        document.getElementById('merge-steps-val').textContent = `${e.target.value} merges`;
+      });
+
+      document.getElementById('btn-train-pipeline').addEventListener('click', () => {
+        runTrainingPipeline(true);
+      });
+
+      document.getElementById('vocab-search').addEventListener('input', (e) => {
+        renderVocabTable(e.target.value);
+      });
+
+      document.getElementById('btn-reset-corpus').addEventListener('click', () => {
+        document.getElementById('corpus-input').value = DEFAULT_CORPUS;
+        document.getElementById('merge-steps-slider').value = 48;
+        document.getElementById('merge-steps-val').textContent = '48 merges';
+        document.getElementById('test-sentence-input').value = 'The king and queen are playing with a neural network algorithm in the kingdom';
+        runTrainingPipeline(true);
+      });
+
+      // Event Listeners: Stage 2
+      document.getElementById('test-sentence-input').addEventListener('input', () => {
+        updateStage2Tokenization();
+      });
+
+      document.querySelectorAll('.sample-prompt-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('test-sentence-input').value = btn.dataset.prompt;
+          updateStage2Tokenization();
+        });
+      });
+
+      // Event Listeners: Stage 3
+      document.getElementById('btn-mode-lexical').addEventListener('click', () => setSpaceMode('lexical'));
+      document.getElementById('btn-mode-semantic').addEventListener('click', () => setSpaceMode('semantic'));
+      document.getElementById('btn-mode-dual').addEventListener('click', () => setSpaceMode('dual'));
+
+      document.getElementById('inspect-word-select').addEventListener('change', (e) => {
+        selectInspectedWord(e.target.value);
+      });
+
+      document.getElementById('toggle-highlight-sentence').addEventListener('change', (e) => {
+        pipelineState.highlightSentence = e.target.checked;
+        if (main3D) main3D.rebuildNodes();
+        if (dualLexical3D) dualLexical3D.rebuildNodes();
+        if (dualSemantic3D) dualSemantic3D.rebuildNodes();
+      });
+
+      document.getElementById('toggle-analogy-vectors').addEventListener('change', (e) => {
+        pipelineState.showAnalogies = e.target.checked;
+        if (main3D) main3D.rebuildConnectionsAndAnalogies();
+        if (dualSemantic3D) dualSemantic3D.rebuildConnectionsAndAnalogies();
+      });
+
+      // Responsive Resize Handler
+      window.addEventListener('resize', () => {
+        if (main3D) main3D.resize();
+        if (dualLexical3D) dualLexical3D.resize();
+        if (dualSemantic3D) dualSemantic3D.resize();
+      });
+
+      // Start 3D Animation Loop
+      function animateLoop() {
+        requestAnimationFrame(animateLoop);
+        if (pipelineState.spaceMode === 'dual') {
+          if (dualLexical3D) dualLexical3D.render();
+          if (dualSemantic3D) dualSemantic3D.render();
+        } else {
+          if (main3D) main3D.render();
+        }
+      }
+      animateLoop();
+    };
+  </script>
+</body>
+</html>

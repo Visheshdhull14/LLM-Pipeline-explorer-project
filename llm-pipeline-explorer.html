@@ -1,0 +1,683 @@
+<title>LLM Pipeline Explorer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: one notebook column of three stage panels (train, tokenize, embed). Stage 3 is a two-up 3D comparison that stacks on phones. Colour encodes meaning clusters only. */
+:root{
+  --bg:#f1e8d6;--surface:#f9f4e8;--surface-2:#e8dcc3;--line:#d5c7a8;--fg:#2b2314;--muted:#6a5e47;
+  --ink:#4b3a1e;--on-ink:#ffffff;
+  --c1:#2563eb;--c2:#d97706;--c3:#0f9d6e;--c4:#0891b2;--c5:#7048e8;--c-none:#8b8068;
+  --chip-a:#eadfc5;--chip-b:#ddcfae;--plot-bg:#ece2cc;--grid:#d0c2a3;
+  --font-head:"Space Grotesk",system-ui,sans-serif;
+  --font-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1a160e;--surface:#231e14;--surface-2:#2e271a;--line:#433a26;--fg:#f1e8d3;--muted:#b5a98e;
+  --ink:#e3cf9f;--on-ink:#1f180a;
+  --c1:#6ea0ff;--c2:#f2a93b;--c3:#3ecf9a;--c4:#22c3e6;--c5:#a78bfa;--c-none:#968b72;
+  --chip-a:#352d1d;--chip-b:#463b25;--plot-bg:#1e1910;--grid:#3f3624;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1a160e;--surface:#231e14;--surface-2:#2e271a;--line:#433a26;--fg:#f1e8d3;--muted:#b5a98e;
+  --ink:#e3cf9f;--on-ink:#1f180a;
+  --c1:#6ea0ff;--c2:#f2a93b;--c3:#3ecf9a;--c4:#22c3e6;--c5:#a78bfa;--c-none:#968b72;
+  --chip-a:#352d1d;--chip-b:#463b25;--plot-bg:#1e1910;--grid:#3f3624;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:14px/1.55 var(--font-body);padding-block:28px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3,h4{font-family:var(--font-head);margin:0;text-wrap:balance;font-weight:600}
+h1{font-size:clamp(28px,5vw,40px);line-height:1.08;letter-spacing:-.02em}
+h2{font-size:22px;letter-spacing:-.01em}
+h1,h2{color:var(--ink)}
+h3{font-size:15px}
+h4{font-size:13px;color:var(--muted);font-weight:500}
+p{margin:0}
+.lede{max-width:64ch;color:var(--muted);font-size:15px;margin-top:10px}
+.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.mono,code{font-family:var(--font-mono)}
+.pipe{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.pipe a{position:relative;display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);text-decoration:none}
+.pipe a:hover{border-color:var(--muted)}
+.pipe a strong{font-family:var(--font-head);font-size:16px}
+.pipe a span.mono{font-size:12px;color:var(--muted)}
+@media(min-width:700px){.pipe a+a::before{content:"\2192";position:absolute;left:-14px;top:50%;transform:translateY(-50%);width:14px;text-align:center;color:var(--muted)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px;display:flex;flex-direction:column;gap:16px;scroll-margin-top:12px}
+.sub{color:var(--muted);max-width:72ch}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0}
+@media(max-width:760px){.panel{padding:16px}.grid2,.plots{grid-template-columns:minmax(0,1fr)!important}}
+.lbl{font-weight:600;font-size:13px}
+textarea,input[type=text],select{width:100%;font:13px/1.5 var(--font-mono);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+textarea{resize:vertical;min-height:200px}
+select{font-family:var(--font-body);width:auto;padding:6px 10px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:600 13px var(--font-body);padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+input[type=range]{width:100%;accent-color:var(--ink)}
+.hint{font-size:12px;color:var(--muted);min-height:1.4em}
+dl.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin:0}
+dl.stats div{border-left:2px solid var(--line);padding-left:10px}
+dl.stats dt{font-size:11px;color:var(--muted)}
+dl.stats dd{margin:0;font:500 20px var(--font-mono);font-variant-numeric:tabular-nums}
+figure{margin:0}
+.chart svg{width:100%;height:auto;display:block}
+.chart figcaption{font-size:12px;color:var(--muted);margin-bottom:4px}
+.scroll{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg)}
+.mrow{display:grid;grid-template-columns:2.4rem 1fr auto auto;gap:8px;align-items:center;padding:3px 0;font-size:12px;font-variant-numeric:tabular-nums}
+.mrow .rk,.mrow .cnt{color:var(--muted);font-family:var(--font-mono)}
+.mrow .rule{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.vocab{display:flex;flex-wrap:wrap;gap:6px}
+.vt{display:inline-flex;align-items:baseline;gap:2px}
+.vt sub{font:10px var(--font-mono);color:var(--muted)}
+.t{font:500 13px var(--font-mono);padding:2px 7px;border-radius:6px;background:var(--chip-a);display:inline-block;white-space:pre}
+.t.B{background:var(--chip-b)}
+.t.hl{outline:2px solid var(--ink)}
+.eow{font-style:normal;font-size:.72em;color:var(--muted);margin-left:1px}
+.rowlabel{font-weight:600;font-size:13px;margin-top:4px}
+.chips{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.tok{display:inline-flex;flex-direction:column;align-items:center;gap:2px}
+.tok small{font:10px var(--font-mono);color:var(--muted)}
+.tok .t{font-size:15px;padding:5px 9px}
+.tok.unk .t{background:repeating-linear-gradient(135deg,transparent 0 4px,var(--line) 4px 5px);border:1px dashed var(--muted)}
+.wg{display:flex;flex-direction:column;gap:4px;padding:6px 8px 8px;border:1px solid var(--line);border-radius:10px}
+.wlabel{all:unset;font:11px var(--font-mono);color:var(--muted);cursor:pointer;border-radius:4px;padding:0 2px}
+.wlabel:hover,.wlabel.on{color:var(--fg);text-decoration:underline}
+.wlabel:focus-visible{outline:2px solid var(--ink)}
+.wtoks{display:flex;gap:3px}
+.summary{font-size:13px}
+.steps{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.steps li{display:grid;grid-template-columns:3.6rem minmax(0,1fr) minmax(0,16rem);gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.steps .sn{font:11px var(--font-mono);color:var(--muted)}
+.steps .sc{display:flex;gap:3px;flex-wrap:wrap}
+.steps .rule{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+@media(max-width:700px){.steps li{grid-template-columns:3rem minmax(0,1fr)}.steps .rule{grid-column:2}}
+.toolbar{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.check{display:inline-flex;gap:6px;align-items:center;font-size:13px;cursor:pointer}
+.plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.plotcard figcaption{display:flex;flex-direction:column;margin-bottom:6px}
+.plotcard figcaption span{font-size:12px;color:var(--muted)}
+.plot{aspect-ratio:5/4;background:var(--plot-bg);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.plot canvas{display:block;width:100%;height:100%;touch-action:pan-y;cursor:grab}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12px;color:var(--muted)}
+.lg{display:inline-flex;gap:6px;align-items:center}
+.lg i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.lg i.ring{background:transparent;border:2px solid var(--fg)}
+.nbr{display:flex;flex-direction:column;gap:10px}
+.nbr ol{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.nbr li{display:grid;grid-template-columns:7.5rem minmax(0,1fr) 2.6rem;gap:8px;align-items:center;font-size:13px}
+.nbr li button{all:unset;cursor:pointer;font-weight:500;border-radius:4px}
+.nbr li button:hover{text-decoration:underline}
+.nbr li button:focus-visible{outline:2px solid var(--ink)}
+.bar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%}
+.nbr li .num{font:12px var(--font-mono);color:var(--muted);text-align:right}
+.empty{font-size:13px;color:var(--muted)}
+.notes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.notes code{background:var(--chip-a);border-radius:4px;padding:0 5px}
+.notes button{all:unset;cursor:pointer;font-weight:600;text-decoration:underline}
+.foot{font-size:12px;color:var(--muted)}
+</style>
+<div class="wrap">
+<header>
+  <h1>LLM Pipeline Explorer</h1>
+  <p class="lede">Train a tiny tokenizer on your own text, split a sentence into subwords, then compare words placed by spelling with words placed by meaning in 3D.</p>
+</header>
+
+<nav class="pipe" aria-label="Pipeline stages">
+  <a href="#train" data-go="train"><span class="eyebrow">Stage 1</span><strong>Train vocabulary</strong><span class="mono" id="pipe1">&nbsp;</span></a>
+  <a href="#tokenize" data-go="tokenize"><span class="eyebrow">Stage 2</span><strong>Subword tokenization</strong><span class="mono" id="pipe2">&nbsp;</span></a>
+  <a href="#embed" data-go="embed"><span class="eyebrow">Stage 3</span><strong>Spelling vs meaning in 3D</strong><span class="mono" id="pipe3">&nbsp;</span></a>
+</nav>
+
+<section class="panel" id="train" aria-labelledby="h-train">
+  <div>
+    <p class="eyebrow">Stage 1</p>
+    <h2 id="h-train">Train the vocabulary</h2>
+    <p class="sub">Byte-pair encoding starts from single characters and repeatedly merges the most frequent neighbouring pair. Every merge becomes a new token. The end of a word is marked with <code>&lt;/w&gt;</code>.</p>
+  </div>
+  <div class="grid2">
+    <div class="col">
+      <label class="lbl" for="corpus">Training text</label>
+      <textarea id="corpus" rows="12" spellcheck="false"></textarea>
+      <div class="col">
+        <label class="lbl" for="merges">Merges to learn: <output id="mergesOut" class="mono"></output></label>
+        <input type="range" id="merges" min="10" max="250" step="5" value="120">
+      </div>
+      <div class="row">
+        <button class="btn primary" id="trainBtn" type="button">Train vocabulary</button>
+        <button class="btn" id="resetBtn" type="button">Restore sample text</button>
+      </div>
+      <p class="hint" id="trainHint"></p>
+    </div>
+    <div class="col">
+      <dl class="stats" id="stats"></dl>
+      <figure class="chart">
+        <figcaption>Training text length (in tokens) as merges are learned</figcaption>
+        <svg id="curve" viewBox="0 0 520 200" role="img" aria-label="Line chart of token count falling as merges are learned"></svg>
+      </figure>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="col"><h3>Merge log</h3><div class="scroll" id="mergeLog"></div></div>
+    <div class="col"><h3>Vocabulary (token and id)</h3><div class="scroll vocab" id="vocabList"></div></div>
+  </div>
+</section>
+
+<section class="panel" id="tokenize" aria-labelledby="h-tok">
+  <div>
+    <p class="eyebrow">Stage 2</p>
+    <h2 id="h-tok">Tokenize a sentence</h2>
+    <p class="sub">The sentence is cut into words, then each word is rebuilt with the learned merges in the order they were learned. A word-level vocabulary has no answer for a word it has never seen. Subwords still do.</p>
+  </div>
+  <div class="col">
+    <label class="lbl" for="sentence">Input sentence</label>
+    <input type="text" id="sentence" autocomplete="off" spellcheck="false">
+    <div class="row" id="examples"></div>
+  </div>
+  <div class="rowlabel">Word-level vocabulary</div>
+  <div class="chips" id="rowWord"></div>
+  <div class="rowlabel">Subword vocabulary (BPE). Click a word to replay its merges.</div>
+  <div class="chips" id="rowBpe"></div>
+  <p class="summary" id="tokSummary"></p>
+  <div>
+    <h3>Merge replay for <span class="mono" id="replayName"></span></h3>
+    <ol class="steps" id="replay"></ol>
+  </div>
+</section>
+
+<section class="panel" id="embed" aria-labelledby="h-emb">
+  <div>
+    <p class="eyebrow">Stage 3</p>
+    <h2 id="h-emb">Spelling vs meaning in 3D</h2>
+    <p class="sub">Both panels hold the same words and share one camera. Left: each word placed by its letters only. Right: each word placed by the company it keeps in the training text (co-occurrence counts, PPMI, SVD). Colour marks the meaning clusters found on the right.</p>
+  </div>
+  <p class="empty" id="embedMsg" hidden>Not enough repeated words in the training text to build a meaning space. Add more sentences where words recur.</p>
+  <div class="col" id="embedBody" style="gap:16px">
+    <div class="toolbar">
+      <label class="check"><input type="checkbox" id="autoRot"> Auto-rotate</label>
+      <label class="check"><input type="checkbox" id="allLabels"> Label every word</label>
+      <button class="btn" id="resetView" type="button">Reset view</button>
+    </div>
+    <div class="plots">
+      <figure class="plotcard"><figcaption><strong>Word-based</strong><span>Close together means similar letters</span></figcaption>
+        <div class="plot"><canvas id="cvS" tabindex="0" aria-label="3D scatter of words placed by spelling. Drag to rotate, arrow keys also rotate."></canvas></div></figure>
+      <figure class="plotcard"><figcaption><strong>Meaning-based</strong><span>Close together means used in similar sentences</span></figcaption>
+        <div class="plot"><canvas id="cvM" tabindex="0" aria-label="3D scatter of words placed by meaning. Drag to rotate, arrow keys also rotate."></canvas></div></figure>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="nbr">
+      <div class="row"><h3>Nearest words to</h3><select id="pick" aria-label="Choose a word"></select></div>
+      <div class="grid2">
+        <div><h4>By spelling</h4><ol id="nbS"></ol></div>
+        <div><h4>By meaning</h4><ol id="nbM"></ol></div>
+      </div>
+    </div>
+    <div class="col"><h3>Your sentence in the space</h3><ul class="notes" id="inputNotes"></ul></div>
+  </div>
+</section>
+<p class="foot">Everything runs in this page. The training text is the only data the model sees.</p>
+</div>
+<script>
+/*PURE-START*/
+const EOW='</w>',SEP='\u0001',MAXW=72,K=5;
+const STOP=new Set('the a an and in on at of to is are was were it its with for by as from that this his her their they he she we you i be been has have had but or so if then than into over under until before after across through near while every each many more not no out our my your me us do does did will can lot during make makes needs comes turns covers stops keeps new next good best small long all some any one two'.split(' '));
+const SAMPLE=`The cat sleeps on the soft rug near the warm window.
+A happy dog runs across the green garden and chases the cat.
+The horse eats grass in the quiet farm field.
+A small bird sings in the tall tree every morning.
+The fish swims in the clear river under the bridge.
+A fox hunts a rabbit in the dark forest at night.
+The tiger and the lion are big cats with sharp teeth and strong paws.
+The mouse hides from the cat and the hungry fox.
+Our dog loves to play in the garden with a happy child.
+The rabbit keeps jumping over the fence and runs to the forest.
+The kitten is playing with a ball of wool while the cat sleeps.
+A bird builds a nest in the tree and the horse rests on the farm.
+The lion hunts at night and the tiger sleeps in the shade.
+The farm has a horse, a dog, a cat and many birds.
+An unusual sound woke the dog until the morning.
+The happy horse runs in the field and the dog follows.
+She cooks hot soup in the kitchen for dinner.
+The baker bakes fresh bread and sweet cake every morning.
+I eat rice with butter and salt for lunch.
+The pizza has cheese, tomato and olive oil.
+A ripe apple and a yellow banana are sweet fruit for breakfast.
+He is cooking pasta with tomato sauce and cheese.
+The soup tastes salty but the cake tastes sweet.
+We are hungry, so the kitchen smells of fresh bread and hot pizza.
+Sugar and butter make the cake soft and delicious.
+The cook tastes the sauce and adds more salt.
+Rice and pasta are cheap, filling food for dinner.
+The children eat apple and banana at breakfast.
+A delicious pizza with cheese is the best dinner.
+She cooked rice and soup, and the happy children ate lunch.
+The car drives fast on the long road.
+A bus carries many passengers to the city station.
+The driver stops the bus at the station and the passengers leave.
+The truck carries heavy cargo on the highway.
+A plane flies high above the cloud and lands at the airport.
+The boat sails across the ocean with a strong wind.
+She rides a bike to the station every morning.
+The engine of the car is loud and the wheels turn fast.
+The tram runs on rails through the busy city.
+A new car needs fuel, oil and a careful driver.
+The plane and the boat travel far, but the bike stays in the city.
+The driver checks the engine, the wheels and the road before driving.
+The path is unknown until the driver reaches the highway.
+Happy passengers wait at the station for the bus.
+The model learns from data during training.
+A tokenizer splits a sentence into small tokens.
+The neural network has many layers and learns patterns in language.
+Training a language model needs a lot of data and a fast computer.
+Each token has an id in the vocabulary of the model.
+The code runs on a server and reads the data.
+An algorithm finds common pairs of tokens and merges them into new tokens.
+The embedding turns every token into a vector of numbers.
+A learner model predicts the next token in a sentence.
+Good data and clean code make the network better.
+The computer trained the tokenizer on a small corpus of text.
+A language model reads text, learns patterns and writes a new sentence.
+The server stores the vocabulary, the vectors and the data.
+The algorithm learns merges, and each merge adds a new token to the vocabulary.
+Rain falls from the grey cloud and the river rises.
+Snow covers the mountain in winter and the air is cold.
+The wind blows strong across the ocean and the sky turns dark.
+A storm brings thunder, heavy rain and strong wind.
+The sun shines bright in the blue sky in summer.
+The river flows from the mountain to the ocean.
+In winter the snow is deep and the wind is cold.
+Summer is warm, and the sun melts the snow on the mountain.
+Dark cloud covers the sky before the storm.
+The rain stops and the sun comes out over the river.
+Cold wind and snow make a long winter.
+A warm summer sun makes the ocean calm.`;
+const DEFAULT_INPUT='the unhappy cat is learning tokenization';
+function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function pretok(t){return t.toLowerCase().match(/[a-z]+|[^\sa-z]/gu)||[];}
+function toSyms(w){const c=Array.from(w);return c.map((x,i)=>i===c.length-1?x+EOW:x);}
+function mergePair(s,a,b){const o=[];for(let i=0;i<s.length;i++){if(i<s.length-1&&s[i]===a&&s[i+1]===b){o.push(a+b);i++;}else o.push(s[i]);}return o;}
+function trainBPE(text,n){
+  const toks=pretok(text),freq=new Map();
+  for(const t of toks)freq.set(t,(freq.get(t)||0)+1);
+  const words=[...freq].map(([w,f])=>({w,f,syms:toSyms(w)}));
+  const base=new Set();
+  for(const c of 'abcdefghijklmnopqrstuvwxyz'){base.add(c);base.add(c+EOW);}
+  for(const x of words)for(const s of x.syms)base.add(s);
+  const total=()=>words.reduce((s,x)=>s+x.f*x.syms.length,0);
+  const chars=words.reduce((s,x)=>s+x.f*Array.from(x.w).length,0);
+  const merges=[],curve=[total()];
+  for(let m=0;m<n;m++){
+    const counts=new Map();
+    for(const x of words){const s=x.syms;for(let i=0;i<s.length-1;i++){const k=s[i]+SEP+s[i+1];counts.set(k,(counts.get(k)||0)+x.f);}}
+    let best=null,bc=0;
+    for(const [k,c] of counts){if(c>bc||(c===bc&&k<best)){best=k;bc=c;}}
+    if(!best||bc<2)break;
+    const [a,b]=best.split(SEP);
+    for(const x of words)x.syms=mergePair(x.syms,a,b);
+    merges.push({a,b,t:a+b,count:bc});curve.push(total());
+  }
+  const vocabList=['<pad>','<unk>',...[...base].sort()];
+  const ids=new Map(vocabList.map((t,i)=>[t,i]));
+  const vocabAt=[vocabList.length],rank=new Map();
+  merges.forEach((m,i)=>{rank.set(m.a+SEP+m.b,i);if(!ids.has(m.t)){ids.set(m.t,vocabList.length);vocabList.push(m.t);}vocabAt.push(vocabList.length);});
+  return {merges,curve,vocabList,vocabAt,ids,rank,wordSet:new Set(freq.keys()),baseCount:base.size,
+    stats:{words:toks.length,unique:freq.size,chars}};
+}
+function encodeWord(model,word){
+  const c=Array.from(word);
+  let s=c.map((x,i)=>{const y=i===c.length-1?x+EOW:x;return model.ids.has(y)?y:'<unk>';});
+  const hist=[{syms:s.slice(),rule:null}];
+  for(;;){
+    let br=Infinity,bi=-1;
+    for(let i=0;i<s.length-1;i++){const r=model.rank.get(s[i]+SEP+s[i+1]);if(r!==undefined&&r<br){br=r;bi=i;}}
+    if(bi<0)break;
+    const a=s[bi],b=s[bi+1];s=mergePair(s,a,b);hist.push({syms:s.slice(),rule:{a,b,rank:br}});
+  }
+  return {syms:s,hist};
+}
+const dot=(a,b)=>{let p=0;for(let i=0;i<a.length;i++)p+=a[i]*b[i];return p;};
+function unit(v){const n=Math.sqrt(dot(v,v))||1;return Float64Array.from(v,x=>x/n);}
+function topEig(A,k){
+  const n=A.length,R=rng(7),vecs=[],vals=[];
+  const mul=v=>Float64Array.from(A,r=>dot(r,v));
+  for(let c=0;c<k;c++){
+    let v=unit(Float64Array.from({length:n},()=>R()-.5));
+    for(let it=0;it<150;it++){
+      let w=mul(mul(v));
+      for(const u of vecs){const p=dot(w,u);for(let i=0;i<n;i++)w[i]-=p*u[i];}
+      v=unit(w);
+    }
+    vals.push(dot(v,mul(v)));vecs.push(v);
+  }
+  return {vals,vecs};
+}
+function pca3(X,seed){
+  const n=X.length,d=X[0].length,mean=new Float64Array(d);
+  X.forEach(r=>{for(let j=0;j<d;j++)mean[j]+=r[j]/n;});
+  let Y=X.map(r=>Float64Array.from(r,(x,j)=>x-mean[j]));
+  const R=rng(seed),comps=[];
+  for(let c=0;c<3;c++){
+    let v=unit(Float64Array.from({length:d},()=>R()-.5));
+    for(let it=0;it<80;it++){
+      const w=new Float64Array(d);
+      for(const r of Y){const p=dot(r,v);for(let j=0;j<d;j++)w[j]+=p*r[j];}
+      v=unit(w);
+    }
+    comps.push(v);
+    Y=Y.map(r=>{const p=dot(r,v);return Float64Array.from(r,(x,j)=>x-p*v[j]);});
+  }
+  return {mean,comps,project:x=>comps.map(v=>{let p=0;for(let j=0;j<x.length;j++)p+=(x[j]-mean[j])*v[j];return p;})};
+}
+function kmeans(X,k,seed){
+  const n=X.length,d2=(a,b)=>{let s=0;for(let i=0;i<a.length;i++){const t=a[i]-b[i];s+=t*t;}return s;};
+  let best=null;
+  for(let rs=0;rs<10;rs++){
+    const R=rng(seed+rs*101);
+    const cen=[Float64Array.from(X[Math.floor(R()*n)])];
+    while(cen.length<k){
+      const d=X.map(x=>Math.min(...cen.map(c=>d2(x,c))));const tot=d.reduce((a,b)=>a+b,0);
+      let r=R()*tot,i=0;for(;i<n-1;i++){r-=d[i];if(r<=0)break;}
+      cen.push(Float64Array.from(X[i]));
+    }
+    let lab=new Array(n).fill(0);
+    for(let it=0;it<30;it++){
+      lab=X.map(x=>{let bi=0,bd=Infinity;cen.forEach((c,i)=>{const d=d2(x,c);if(d<bd){bd=d;bi=i;}});return bi;});
+      for(let c=0;c<k;c++){
+        const m=X.filter((_,i)=>lab[i]===c);
+        if(!m.length){cen[c]=Float64Array.from(X[Math.floor(R()*n)]);continue;}
+        cen[c]=Float64Array.from({length:X[0].length},(_,j)=>m.reduce((s,r)=>s+r[j],0)/m.length);
+      }
+    }
+    const inertia=X.reduce((s,x,i)=>s+d2(x,cen[lab[i]]),0);
+    if(!best||inertia<best.inertia)best={lab,cen,inertia};
+  }
+  const size=Array.from({length:k},(_,c)=>best.lab.filter(l=>l===c).length);
+  const order=[...size.keys()].sort((a,b)=>size[b]-size[a]),map=new Map(order.map((o,i)=>[o,i]));
+  return {lab:best.lab.map(l=>map.get(l)),cen:order.map(o=>best.cen[o])};
+}
+function hash(s){let x=7;for(const ch of s)x=(Math.imul(x,31)+ch.charCodeAt(0))>>>0;return x;}
+function spellRaw(w){
+  const v=new Float64Array(106);
+  for(const ch of w){const c=ch.charCodeAt(0)-97;if(c>=0&&c<26)v[c]+=1;}
+  for(let i=0;i<w.length-1;i++)v[26+hash(w.slice(i,i+2))%48]+=1;
+  v[74+hash('^'+w.slice(0,2))%16]+=1.5;v[90+hash(w.slice(-2)+'$')%16]+=1.5;
+  return v;
+}
+function buildSpace(text){
+  const sents=text.toLowerCase().split(/[.!?\n]+/).map(s=>(s.match(/[a-z]+/g)||[]).filter(w=>w.length>=3&&!STOP.has(w)));
+  const cnt=new Map();
+  for(const s of sents)for(const w of s)cnt.set(w,(cnt.get(w)||0)+1);
+  const words=[...cnt].filter(e=>e[1]>=2).sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:1)).slice(0,MAXW).map(e=>e[0]);
+  const n=words.length;if(n<8)return null;
+  const idx=new Map(words.map((w,i)=>[w,i]));
+  const co=Array.from({length:n},()=>new Float64Array(n));
+  for(const s of sents){const u=[...new Set(s.filter(w=>idx.has(w)).map(w=>idx.get(w)))];for(const i of u)for(const j of u)if(i!==j)co[i][j]++;}
+  const rs=co.map(r=>r.reduce((a,b)=>a+b,0)),tot=rs.reduce((a,b)=>a+b,0)||1;
+  const cs=rs.map(r=>Math.pow(r,.75)),cst=cs.reduce((a,b)=>a+b,0)||1;
+  const M=co.map((r,i)=>Float64Array.from(r,(c,j)=>{if(!c)return 0;const v=Math.log((c/tot)/((rs[i]/tot)*(cs[j]/cst)));return v>0?v:0;}));
+  const Ms=M.map((r,i)=>Float64Array.from(r,(x,j)=>(x+M[j][i])/2));
+  const kk=Math.min(12,n-1),{vals,vecs}=topEig(Ms,kk);
+  const raw=words.map((_,i)=>Float64Array.from({length:kk},(_,c)=>vecs[c][i]*Math.sqrt(Math.abs(vals[c]))));
+  const meanM=Float64Array.from({length:kk},(_,j)=>raw.reduce((s,r)=>s+r[j],0)/n);
+  const vM=raw.map(r=>unit(Float64Array.from(r,(x,j)=>x-meanM[j])));
+  const sraw=words.map(spellRaw),meanS=Float64Array.from({length:106},(_,j)=>sraw.reduce((s,r)=>s+r[j],0)/n);
+  const vS=sraw.map(r=>unit(Float64Array.from(r,(x,j)=>x-meanS[j])));
+  const pcaM=pca3(vM,11),pcaS=pca3(vS,13);
+  const rawM=vM.map(v=>pcaM.project(v)),rawS=vS.map(v=>pcaS.project(v));
+  const scM=Math.max(...rawM.flat().map(Math.abs))||1,scS=Math.max(...rawS.flat().map(Math.abs))||1;
+  const cl2=x=>Math.max(-1.25,Math.min(1.25,x));
+  const km=kmeans(vM,Math.min(K,Math.floor(n/3)||1),42);
+  const d2=(a,b)=>{let s=0;for(let i=0;i<a.length;i++){const t=a[i]-b[i];s+=t*t;}return s;};
+  const names=km.cen.map((c,ci)=>words.map((w,i)=>[w,i]).filter(([,i])=>km.lab[i]===ci).sort((a,b)=>d2(vM[a[1]],c)-d2(vM[b[1]],c)).slice(0,4).map(e=>e[0]));
+  const S={words,idx,cnt,vM,vS,K:km.cen.length,names,
+    pM:rawM.map(p=>p.map(x=>x/scM)),pS:rawS.map(p=>p.map(x=>x/scS)),cl:km.lab,
+    projM:v=>pcaM.project(v).map(x=>cl2(x/scM)),projS:v=>pcaS.project(v).map(x=>cl2(x/scS)),
+    spell:w=>unit(Float64Array.from(spellRaw(w),(x,j)=>x-meanS[j])),
+    cluster:v=>{let bi=0,bd=Infinity;km.cen.forEach((c,i)=>{const d=d2(v,c);if(d<bd){bd=d;bi=i;}});return bi;},
+    via(w,model){
+      const {syms}=encodeWord(model,w);
+      const pieces=[...new Set(syms.map(s=>s.split(EOW).join('')).filter(p=>p.length>=4&&p!=='<unk>'))];
+      const wt=new Map(),used=[];
+      for(const p of pieces){
+        const hits=words.map((x,i)=>[x,i]).filter(([x])=>x.startsWith(p)).slice(0,6);
+        if(hits.length){used.push(p);for(const [,i] of hits)wt.set(i,Math.max(wt.get(i)||0,p.length));}
+      }
+      if(!wt.size)return null;
+      const v=new Float64Array(kk);
+      for(const [i,g] of wt)for(let j=0;j<kk;j++)v[j]+=g*vM[i][j];
+      return {vec:unit(v),pieces:used,matched:[...wt.keys()].map(i=>words[i])};
+    }};
+  return S;
+}
+/*PURE-END*/
+const $=(s)=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let model=null,S=null,points=[],notes=[],selWord=null,selNb={S:null,M:null},anim=0,trainTimer=0;
+const view={yaw:-0.6,pitch:0.35};
+
+function tokInner(s){
+  if(s==='<pad>'||s==='<unk>')return esc(s);
+  return s.endsWith(EOW)?esc(s.slice(0,-EOW.length))+'<i class="eow">&lt;/w&gt;</i>':esc(s);
+}
+const tk=(s,b)=>'<b class="t'+(b?' B':'')+'">'+tokInner(s)+'</b>';
+
+/* ---------- Stage 1 ---------- */
+function renderStats(k){
+  const st=model.stats,cur=model.curve[k];
+  const items=[['Words in text',st.words],['Unique words',st.unique],['Merges',k],['Vocabulary size',model.vocabAt[k]],['Characters per token',(st.chars/cur).toFixed(2)]];
+  $('#stats').innerHTML=items.map(([a,b])=>'<div><dt>'+a+'</dt><dd>'+b+'</dd></div>').join('');
+}
+function renderCurve(k){
+  const c=model.curve,N=Math.max(1,model.merges.length),W=520,H=200,L=52,B=30,T=10,R=10;
+  const ymax=c[0],X=i=>L+(W-L-R)*i/N,Y=v=>T+(H-T-B)*(1-v/ymax);
+  const pts=c.slice(0,k+1).map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1));
+  const ticks=[0,.5,1].map(f=>{const v=Math.round(ymax*f);return '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)"/><text x="'+(L-6)+'" y="'+(Y(v)+3)+'" text-anchor="end" fill="var(--muted)" font-size="10" font-family="var(--font-mono)">'+v+'</text>';}).join('');
+  const xt=[0,.5,1].map(f=>{const v=Math.round(N*f);return '<text x="'+X(v)+'" y="'+(H-12)+'" text-anchor="middle" fill="var(--muted)" font-size="10" font-family="var(--font-mono)">'+v+'</text>';}).join('');
+  const last=pts[pts.length-1].split(',');
+  $('#curve').innerHTML=ticks+xt+'<text x="'+((W+L)/2)+'" y="'+(H-1)+'" text-anchor="middle" fill="var(--muted)" font-size="10">merges learned</text>'+
+    '<polygon points="'+X(0)+','+Y(0)+' '+pts.join(' ')+' '+last[0]+','+Y(0)+'" fill="var(--surface-2)"/>'+
+    '<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--ink)" stroke-width="2"/>'+
+    '<circle cx="'+last[0]+'" cy="'+last[1]+'" r="4" fill="var(--ink)"/>';
+}
+function renderLists(k,live){
+  $('#mergeLog').innerHTML=model.merges.slice(0,k).map((m,i)=>'<div class="mrow"><span class="rk">'+(i+1)+'</span><span class="rule">'+tk(m.a)+' + '+tk(m.b)+'</span><span class="to">'+tk(m.t,1)+'</span><span class="cnt">&times;'+m.count+'</span></div>').join('')||'<span class="empty">No merges learned.</span>';
+  $('#vocabList').innerHTML=model.vocabList.slice(0,model.vocabAt[k]).map((t,i)=>'<span class="vt">'+tk(t,i%2)+'<sub>'+i+'</sub></span>').join('');
+  if(live){$('#mergeLog').scrollTop=1e6;$('#vocabList').scrollTop=1e6;}
+}
+function renderStage1(k,live){renderStats(k);renderCurve(k);renderLists(k,live);}
+function playLog(animate){
+  cancelAnimationFrame(anim);
+  const N=model.merges.length;
+  if(!animate||reduceMotion||N===0){renderStage1(N,false);return;}
+  let k=0;const step=Math.max(1,Math.ceil(N/50));
+  const tick=()=>{k=Math.min(N,k+step);renderStage1(k,k<N);if(k<N)anim=requestAnimationFrame(tick);else{$('#mergeLog').scrollTop=0;$('#vocabList').scrollTop=0;}};
+  anim=requestAnimationFrame(tick);
+}
+function train(animate){
+  $('#trainHint').textContent='';
+  model=trainBPE($('#corpus').value,+$('#merges').value);
+  S=buildSpace($('#corpus').value);
+  playLog(animate);
+  renderTokens();refreshSpace();
+  $('#pipe1').textContent=model.merges.length+' merges, '+model.vocabList.length+' tokens';
+}
+
+/* ---------- Stage 2 ---------- */
+let replayIdx=-1,lastToks=[];
+function renderTokens(){
+  const toks=pretok($('#sentence').value);
+  const prevWord=lastToks[replayIdx];lastToks=toks;
+  const enc=toks.map(w=>encodeWord(model,w));
+  let n=0;
+  $('#rowWord').innerHTML=toks.map(w=>model.wordSet.has(w)
+    ?'<span class="tok"><b class="t'+(n++%2?' B':'')+'">'+esc(w)+'</b></span>'
+    :'<span class="tok unk"><b class="t">&lt;unk&gt;</b><small>'+esc(w)+'</small></span>').join('')||'<span class="empty">Type a sentence above.</span>';
+  if(!toks.length){$('#rowBpe').innerHTML='';$('#tokSummary').textContent='';$('#replay').innerHTML='';$('#replayName').textContent='';return;}
+  let idx=toks.indexOf(prevWord);
+  if(idx<0)idx=toks.findIndex((w,i)=>!model.wordSet.has(w)&&enc[i].syms.length>1);
+  if(idx<0)idx=Math.max(0,enc.findIndex(e=>e.syms.length>1));
+  replayIdx=idx;
+  let total=0,unkB=0;n=0;
+  $('#rowBpe').innerHTML=toks.map((w,i)=>{
+    const chips=enc[i].syms.map(s=>{total++;const u=s==='<unk>';if(u)unkB++;
+      return '<span class="tok'+(u?' unk':'')+'"><b class="t'+(n++%2?' B':'')+'">'+tokInner(s)+'</b><small>'+(model.ids.get(s)??1)+'</small></span>';}).join('');
+    return '<div class="wg"><button type="button" class="wlabel'+(i===idx?' on':'')+'" data-i="'+i+'">'+esc(w)+'</button><div class="wtoks">'+chips+'</div></div>';}).join('');
+  const unkW=toks.filter(w=>!model.wordSet.has(w)).length;
+  $('#tokSummary').textContent='Word-level vocabulary: '+unkW+' of '+toks.length+' words are unknown. Subword vocabulary: '+unkB+' unknown, '+total+' tokens.';
+  $('#pipe2').textContent=total+' tokens from '+toks.length+' words';
+  renderReplay(toks,enc);
+  refreshSpace();
+}
+function renderReplay(toks,enc){
+  const i=replayIdx,e=enc[i];$('#replayName').textContent=toks[i];
+  const row=(sn,syms,rule,hl)=>'<li><span class="sn">'+sn+'</span><span class="sc">'+syms.map(s=>'<b class="t'+(s===hl?' hl':'')+'">'+tokInner(s)+'</b>').join('')+'</span><span class="rule">'+rule+'</span></li>';
+  let h=row('start',e.hist[0].syms,'single characters');
+  e.hist.slice(1).forEach((s,j)=>{h+=row(j+1,s.syms,'rule #'+(s.rule.rank+1)+': '+tk(s.rule.a)+' + '+tk(s.rule.b)+' &rarr; '+tk(s.rule.a+s.rule.b,1),s.rule.a+s.rule.b);});
+  if(e.hist.length===1)h+='<li><span class="sn"></span><span class="rule">No merge rule applies to this word, so it stays as it is.</span></li>';
+  $('#replay').innerHTML=h;
+}
+
+/* ---------- wiring for stages 1 and 2 ---------- */
+$('#corpus').value=SAMPLE;$('#sentence').value=DEFAULT_INPUT;
+$('#mergesOut').textContent=$('#merges').value;
+$('#merges').addEventListener('input',e=>{$('#mergesOut').textContent=e.target.value;clearTimeout(trainTimer);trainTimer=setTimeout(()=>train(false),200);});
+$('#corpus').addEventListener('input',()=>{$('#trainHint').textContent='Text changed. Press Train vocabulary to rebuild.';});
+$('#trainBtn').addEventListener('click',()=>train(true));
+$('#resetBtn').addEventListener('click',()=>{$('#corpus').value=SAMPLE;train(true);});
+$('#sentence').addEventListener('input',renderTokens);
+$('#rowBpe').addEventListener('click',e=>{const b=e.target.closest('.wlabel');if(!b)return;replayIdx=+b.dataset.i;
+  const toks=pretok($('#sentence').value);document.querySelectorAll('.wlabel').forEach(x=>x.classList.toggle('on',x===b));renderReplay(toks,toks.map(w=>encodeWord(model,w)));});
+['the unhappy cat is learning tokenization','a zebra jumps over the fence','happy drivers and rainy mountains','neural tokenizers handle café prices'].forEach(t=>{
+  const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=t;
+  b.addEventListener('click',()=>{$('#sentence').value=t;renderTokens();});$('#examples').appendChild(b);});
+document.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();
+  document.getElementById(a.dataset.go).scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'});}));
+/* ---------- Stage 3 ---------- */
+const COL={};
+function readColors(){const cs=getComputedStyle(document.documentElement);
+  ['--fg','--muted','--line','--plot-bg','--grid','--c1','--c2','--c3','--c4','--c5','--c-none'].forEach(n=>{COL[n]=cs.getPropertyValue(n).trim();});}
+const clColor=c=>c<0?COL['--c-none']:COL['--c'+(c+1)];
+const plots=[];let autoOn=false,labelAll=false,lastT=0;
+
+function nearest(q,key,k,skip){
+  return S.base.filter(p=>p.w!==skip).map(p=>({w:p.w,cl:p.cl,sim:dot(q,p[key])})).sort((a,b)=>b.sim-a.sim).slice(0,k);
+}
+function refreshSpace(){
+  if(!S){$('#embedMsg').hidden=false;$('#embedBody').hidden=true;$('#pipe3').textContent='not enough data';points=[];return;}
+  $('#embedMsg').hidden=true;$('#embedBody').hidden=false;
+  if(!S.base)S.base=S.words.map((w,i)=>({w,base:true,vM:S.vM[i],vS:S.vS[i],pM:S.pM[i],pS:S.pS[i],cl:S.cl[i],rank:i}));
+  S.base.forEach(p=>{p.inInput=false;});
+  const inW=[...new Set(pretok($('#sentence').value).filter(w=>/^[a-z]{3,}$/.test(w)&&!STOP.has(w)))].slice(0,8);
+  const extras=[];notes=[];
+  for(const w of inW){
+    const bi=S.idx.get(w);
+    if(bi!==undefined){S.base[bi].inInput=true;notes.push({w,mode:'exact'});continue;}
+    const vS=S.spell(w),via=S.via(w,model);
+    extras.push({w,base:false,inInput:true,vS,vM:via?via.vec:null,pS:S.projS(vS),pM:via?S.projM(via.vec):null,cl:via?S.cluster(via.vec):-1});
+    notes.push({w,mode:via?'subword':'none',via});
+  }
+  points=S.base.concat(extras);
+  $('#pipe3').textContent=points.length+' words in 3D';
+  $('#pick').innerHTML=[...points].sort((a,b)=>a.w<b.w?-1:1).map(p=>'<option value="'+esc(p.w)+'">'+esc(p.w)+'</option>').join('');
+  $('#legend').innerHTML=S.names.map((n,i)=>'<span class="lg"><i style="background:var(--c'+(i+1)+')"></i>'+esc(n.slice(0,3).join(', '))+'</span>').join('')+
+    '<span class="lg"><i class="ring"></i>word from your sentence (hollow if it was never in the training text)</span>';
+  $('#inputNotes').innerHTML=notes.map(n=>{
+    const b='<button type="button" data-w="'+esc(n.w)+'">'+esc(n.w)+'</button>';
+    if(n.mode==='exact')return '<li>'+b+' appears in the training text, so both panels use its own position.</li>';
+    if(n.mode==='subword')return '<li>'+b+' never appears in the training text. Spelling panel: placed from its letters. Meaning panel: estimated from words that start with its pieces ('+n.via.pieces.map(p=>'<code>'+esc(p)+'</code>').join(', ')+'): '+n.via.matched.map(esc).join(', ')+'.</li>';
+    return '<li>'+b+' never appears in the training text and shares no piece with known words. The spelling panel still places it. The meaning panel cannot, because spelling carries no meaning.</li>';}).join('')||'<li class="empty">No content words in the sentence to place.</li>';
+  if(!points.some(p=>p.w===selWord)){
+    const first=notes.find(n=>points.some(p=>p.w===n.w));selWord=first?first.w:S.base[0].w;}
+  selectWord(selWord);
+}
+function selectWord(w){
+  const p=points.find(x=>x.w===w);if(!p)return;
+  selWord=w;$('#pick').value=w;
+  selNb={S:nearest(p.vS,'vS',6,w),M:p.vM?nearest(p.vM,'vM',6,w):null};
+  const li=l=>l.map(x=>'<li><button type="button" data-w="'+esc(x.w)+'">'+esc(x.w)+'</button><span class="bar"><i style="width:'+Math.max(0,Math.min(1,x.sim))*100+'%;background:var(--c'+(x.cl+1)+')"></i></span><span class="num">'+x.sim.toFixed(2)+'</span></li>').join('');
+  $('#nbS').innerHTML=li(selNb.S);
+  $('#nbM').innerHTML=selNb.M?li(selNb.M):'<li class="empty" style="display:block">No meaning position for this word: it never appears in the training text and shares no piece with known words.</li>';
+  drawAll();
+}
+
+function project(p,P){
+  const cy=Math.cos(view.yaw),sy=Math.sin(view.yaw),cp=Math.cos(view.pitch),sp=Math.sin(view.pitch);
+  const x=p[0]*cy+p[2]*sy;let z=-p[0]*sy+p[2]*cy;const y=p[1]*cp-z*sp;z=p[1]*sp+z*cp;
+  const f=5/(5-z),R=Math.min(P.w,P.h)*.22;
+  return {x:P.w/2+x*f*R,y:P.h/2-y*f*R,z,f};
+}
+function halo(ctx,t,x,y,bold){
+  ctx.font=(bold?'600 ':'400 ')+'12px Inter,system-ui,sans-serif';ctx.lineWidth=3;ctx.lineJoin='round';
+  ctx.strokeStyle=COL['--plot-bg'];ctx.strokeText(t,x,y);ctx.fillStyle=COL['--fg'];ctx.fillText(t,x,y);
+}
+function drawPlot(P){
+  if(!P.w||!S)return;
+  const ctx=P.ctx,key='p'+P.kind,dpr=P.dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle=COL['--plot-bg'];ctx.fillRect(0,0,P.w,P.h);
+  const C=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(c=>project(c,P));
+  ctx.strokeStyle=COL['--grid'];ctx.lineWidth=1;ctx.beginPath();
+  [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(([a,b])=>{ctx.moveTo(C[a].x,C[a].y);ctx.lineTo(C[b].x,C[b].y);});
+  ctx.stroke();
+  ctx.font='11px "JetBrains Mono",monospace';ctx.fillStyle=COL['--muted'];
+  [[[1.2,-1,-1],'PC1'],[[-1,1.2,-1],'PC2'],[[-1,-1,1.2],'PC3']].forEach(([p,t])=>{const q=project(p,P);ctx.fillText(t,q.x-8,q.y+4);});
+  const vis=points.filter(p=>p[key]).map(p=>({p,...project(p[key],P)})).sort((a,b)=>a.z-b.z);
+  const sel=vis.find(v=>v.p.w===selWord),nb=new Set((selNb[P.kind]||[]).map(x=>x.w));
+  if(sel){ctx.strokeStyle=COL['--fg'];ctx.globalAlpha=.4;ctx.lineWidth=1.2;ctx.beginPath();
+    vis.filter(v=>nb.has(v.p.w)).forEach(v=>{ctx.moveTo(sel.x,sel.y);ctx.lineTo(v.x,v.y);});ctx.stroke();ctx.globalAlpha=1;}
+  P.hit=[];
+  for(const v of vis){
+    const r=(v.p.base?4.2:5.6)*v.f,col=clColor(v.p.cl);
+    ctx.globalAlpha=Math.max(.45,Math.min(1,.6+v.z*.25));
+    ctx.beginPath();ctx.arc(v.x,v.y,r,0,7);
+    if(v.p.base){ctx.fillStyle=col;ctx.fill();}else{ctx.fillStyle=COL['--plot-bg'];ctx.fill();ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.stroke();}
+    ctx.globalAlpha=1;
+    if(v.p.inInput||v.p.w===selWord){ctx.beginPath();ctx.arc(v.x,v.y,r+3.5,0,7);ctx.strokeStyle=COL['--fg'];ctx.lineWidth=v.p.w===selWord?2.5:1.5;ctx.stroke();}
+    P.hit.push({p:v.p,x:v.x,y:v.y,r});
+  }
+  for(const v of vis){
+    const p=v.p,on=p.inInput||p.w===selWord||nb.has(p.w)||P.hover===p||labelAll||(p.base&&p.rank<12);
+    if(on)halo(ctx,p.w,v.x+v.f*6,v.y+4,p.inInput||p.w===selWord||P.hover===p);
+  }
+  ctx.font='11px Inter,system-ui,sans-serif';ctx.fillStyle=COL['--muted'];ctx.fillText('Drag to rotate',10,P.h-10);
+  if(P.kind==='M'&&sel===undefined&&selWord){ctx.fillText('"'+selWord+'" has no meaning position',10,18);}
+}
+function drawAll(){plots.forEach(drawPlot);}
+function setupPlot(id,kind){
+  const cv=$(id),P={cv,kind,ctx:cv.getContext('2d'),w:0,h:0,dpr:1,hit:[],hover:null,drag:null};plots.push(P);
+  new ResizeObserver(([e])=>{const r=e.contentRect;P.dpr=window.devicePixelRatio||1;P.w=r.width;P.h=r.height;
+    cv.width=Math.round(r.width*P.dpr);cv.height=Math.round(r.height*P.dpr);drawPlot(P);}).observe(cv.parentElement);
+  const pos=e=>{const r=cv.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];};
+  const pick=e=>{const [x,y]=pos(e);let best=null,bd=1e9;for(const h of P.hit){const d=Math.hypot(h.x-x,h.y-y);if(d<Math.max(10,h.r+4)&&d<bd){bd=d;best=h.p;}}return best;};
+  cv.addEventListener('pointerdown',e=>{P.drag={x:e.clientX,y:e.clientY,moved:0};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing';});
+  cv.addEventListener('pointermove',e=>{
+    if(P.drag){const dx=e.clientX-P.drag.x,dy=e.clientY-P.drag.y;P.drag.x=e.clientX;P.drag.y=e.clientY;P.drag.moved+=Math.abs(dx)+Math.abs(dy);
+      view.yaw+=dx*.01;if(e.pointerType!=='touch')view.pitch=Math.max(-1.5,Math.min(1.5,view.pitch+dy*.01));drawAll();}
+    else{const h=pick(e);if(h!==P.hover){P.hover=h;cv.style.cursor=h?'pointer':'grab';drawPlot(P);}}});
+  cv.addEventListener('pointerup',e=>{if(P.drag&&P.drag.moved<5){const h=pick(e);if(h)selectWord(h.w);}P.drag=null;cv.style.cursor='grab';});
+  cv.addEventListener('pointercancel',()=>{P.drag=null;});
+  cv.addEventListener('pointerleave',()=>{if(P.hover){P.hover=null;drawPlot(P);}});
+  cv.addEventListener('keydown',e=>{const k={ArrowLeft:[-.1,0],ArrowRight:[.1,0],ArrowUp:[0,.1],ArrowDown:[0,-.1]}[e.key];
+    if(!k)return;e.preventDefault();view.yaw+=k[0];view.pitch=Math.max(-1.5,Math.min(1.5,view.pitch+k[1]));drawAll();});
+}
+function tick(t){if(!autoOn)return;view.yaw+=(t-lastT)*.0003;lastT=t;drawAll();requestAnimationFrame(tick);}
+$('#autoRot').addEventListener('change',e=>{autoOn=e.target.checked;if(autoOn){lastT=performance.now();requestAnimationFrame(tick);}});
+$('#allLabels').addEventListener('change',e=>{labelAll=e.target.checked;drawAll();});
+$('#resetView').addEventListener('click',()=>{view.yaw=-.6;view.pitch=.35;drawAll();});
+$('#pick').addEventListener('change',e=>selectWord(e.target.value));
+$('#embed').addEventListener('click',e=>{const b=e.target.closest('button[data-w]');if(b)selectWord(b.dataset.w);});
+
+/* ---------- start ---------- */
+readColors();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{readColors();drawAll();});
+new MutationObserver(()=>{readColors();drawAll();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+setupPlot('#cvS','S');setupPlot('#cvM','M');
+train(true);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>drawAll());
+</script>
